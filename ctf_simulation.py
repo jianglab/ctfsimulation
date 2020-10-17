@@ -173,22 +173,26 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
     sy = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
     sx, sy = np.meshgrid(sx, sy, indexing='ij')
 
-    if plot_s2:
-        s2 = np.sqrt(sx*sx + sy*sy)
-    else:
-        s2 = sx*sx + sy*sy
-
     theta = np.arctan2(sy, sx)
     defocus2d = defocus + dfdiff/2*np.cos( 2*(theta-dfang*np.pi/180.))
 
     wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)
     wl3 = np.power(wl, 3)
     phaseshift = phaseshift * np.pi / 180.0 + np.arcsin(ampcontrast/100.)
+
+    s2 = sx*sx + sy*sy
     gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
     ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0) 
     if abs: ctf = np.abs(ctf)
 
-    return ctf
+    if plot_s2:
+        s2 = np.sqrt(sx*sx + sy*sy)
+        gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
+        ctf_s2 = np.sin(gamma) * np.exp(-bfactor*s2/4.0) 
+        if abs: ctf_s2 = np.abs(ctf_s2)
+    else:
+        ctf_s2 = None
+    return ctf, ctf_s2
 
 st.title("CTF Simulation")
 col1, _, col2 = st.beta_columns((3, 0.1, 2))
@@ -233,26 +237,27 @@ with col2d:
     label = 'plot s^2 as radius'
     plot2d_s2 = st.checkbox(label, value=False)
 
-    ctf = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs, plot2d_s2)
-    st.image(ctf, clamp=[ctf.min(), ctf.max()])
-    if not plot2d_s2:
-        emdb_ids = get_emdb_ids()
-        if session_state.emd_id==0:
-            emd_id = random.choice(emdb_ids)
-        else:
-            emd_id = session_state.emd_id
-        emd_id = st.text_input('Simulate the CTF effect on an image. Input a EMDB ID:', value=emd_id)
-        if emd_id in emdb_ids:
-            session_state.emd_id = emd_id
-            image = get_emdb_image(emd_id, invert_contrast=True, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
-            link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
-            st.markdown(link, unsafe_allow_html=True)
-            st.image(image, caption="Orignal image", clamp=[image.min(), image.max()])
-            # apply ctf to the image
-            image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf)))
-            st.image(image2, caption="CTF applied", clamp=[image2.min(), image2.max()])
-        else:
-            emd_id_bad = emd_id
-            emd_id = random.choice(emdb_ids)
-            st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
+    ctf, ctf_s2 = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs, plot2d_s2)
+    ctf_to_plot = ctf_s2 if ctf_s2 is not None else ctf
+    st.image(ctf_to_plot, clamp=[ctf.min(), ctf.max()])
+
+    emdb_ids = get_emdb_ids()
+    if session_state.emd_id==0:
+        emd_id = random.choice(emdb_ids)
+    else:
+        emd_id = session_state.emd_id
+    emd_id = st.text_input('Simulate the CTF effect on an image. Input a EMDB ID:', value=emd_id)
+    if emd_id in emdb_ids:
+        session_state.emd_id = emd_id
+        image = get_emdb_image(emd_id, invert_contrast=True, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
+        link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
+        st.markdown(link, unsafe_allow_html=True)
+        st.image(image, caption="Orignal image", clamp=[image.min(), image.max()])
+        # apply ctf to the image
+        image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf)))
+        st.image(image2, caption="CTF applied", clamp=[image2.min(), image2.max()])
+    else:
+        emd_id_bad = emd_id
+        emd_id = random.choice(emdb_ids)
+        st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
 
