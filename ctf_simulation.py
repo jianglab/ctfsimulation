@@ -100,20 +100,6 @@ def SessionState_get(**kwargs):
 
     return this_session._custom_session_state
 
-def use_max_screen_width():
-    max_width_str = f"max-width: 2000px;"
-    st.markdown(
-        f"""
-    <style>
-    .reportview-container .main .block-container{{
-        {max_width_str}
-    }}
-    </style>    
-    """,
-        unsafe_allow_html=True,
-    )
-use_max_screen_width()
-
 @st.cache()
 def get_emdb_ids():
     emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/pdbe/emdb/emdb_schema3/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
@@ -121,7 +107,7 @@ def get_emdb_ids():
     return emdb_ids
 
 @st.cache()
-def get_emdb_image(emd_id, invert_contrast=True, rgb2gray=True, output_shape=None):
+def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     url = f"https://www.ebi.ac.uk/pdbe/static/entry/EMD-{emd_id}/400_{emd_id}.gif"
     from skimage.io import imread
     image = imread( url )    # numpy array
@@ -131,12 +117,17 @@ def get_emdb_image(emd_id, invert_contrast=True, rgb2gray=True, output_shape=Non
     if output_shape:
         from skimage.transform import resize
         image = resize(image, output_shape=output_shape)
-    if invert_contrast:
+    if invert_contrast<0: # detect if the image contrast should be inverted (i.e. to make background black)
+        from scipy.stats import skew
+        invert_contrast = skew(image, axis=None)>0
+    if invert_contrast>0:
         vmin, vmax = image.min(), image.max()
         image = -image + vmax + vmin
     return image
 
 session_state = SessionState_get(defocus=0.5, emd_id=0)
+
+st.beta_set_page_config(page_title="CTF Simulation", layout="wide")
 
 with st.sidebar:
     session_state.defocus = st.number_input('defocus (micrometer)', value=session_state.defocus)
@@ -246,10 +237,11 @@ with col2d:
         emd_id = random.choice(emdb_ids)
     else:
         emd_id = session_state.emd_id
-    emd_id = st.text_input('Simulate the CTF effect on an image. Input a EMDB ID:', value=emd_id)
+    with st.beta_expander("Simulate the CTF effect on an image"):
+        emd_id = st.text_input('Input an EMDB ID:', value=emd_id)
     if emd_id in emdb_ids:
         session_state.emd_id = emd_id
-        image = get_emdb_image(emd_id, invert_contrast=True, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
+        image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
         link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
         st.markdown(link, unsafe_allow_html=True)
         st.image(image, caption="Orignal image", clamp=[image.min(), image.max()])
