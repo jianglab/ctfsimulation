@@ -117,12 +117,13 @@ def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None)
     if output_shape:
         from skimage.transform import resize
         image = resize(image, output_shape=output_shape)
+    vmin, vmax = image.min(), image.max()
+    image = (image-vmin)/(vmax-vmin)    # set to range [0, 1]
     if invert_contrast<0: # detect if the image contrast should be inverted (i.e. to make background black)
-        from scipy.stats import skew
-        invert_contrast = skew(image, axis=None)>0
+        edge_vals = np.mean([image[0, :].mean(), image[-1, :].mean(), image[:, 0].mean(), image[:, -1].mean()])
+        invert_contrast = edge_vals>0.5
     if invert_contrast>0:
-        vmin, vmax = image.min(), image.max()
-        image = -image + vmax + vmin
+        image = -image + 1
     return image
 
 session_state = SessionState_get(defocus=0.5, emd_id=0)
@@ -130,6 +131,9 @@ session_state = SessionState_get(defocus=0.5, emd_id=0)
 st.beta_set_page_config(page_title="CTF Simulation", layout="wide")
 
 with st.sidebar:
+    options = ('CTF', '|CTF|', 'CTF^2')
+    ctf_type = st.selectbox(label='CTF type', options=options)
+    plot_abs = options.index(ctf_type)
     session_state.defocus = st.number_input('defocus (micrometer)', value=session_state.defocus)
     session_state.defocus = st.slider('', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.0001)
     dfdiff = st.number_input('astigmatism mag (micrometer)', value=0.0)
@@ -137,6 +141,7 @@ with st.sidebar:
     phaseshift = st.number_input('phase shift (degree)', value=0.0)
     apix = st.number_input('pixel size (Angstrom/pixel)', value=1.0)
     imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096)
+    over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6)
     bfactor = st.number_input('b-factor (Angstrom^2)', value=0.0)
     voltage = st.number_input('voltage (kV)', value=300)
     cs = st.number_input('cs (mm)', value=2.7)
@@ -152,7 +157,8 @@ def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesiz
     phaseshift = phaseshift * np.pi / 180.0 + np.arcsin(ampcontrast/100.)
     gamma =2*np.pi*(-0.5*defocus*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
     ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0)
-    if abs: ctf = np.abs(ctf)
+    if abs>=2: ctf = ctf*ctf
+    elif abs==1: ctf = np.abs(ctf)
 
     return s, s2, ctf
 
@@ -173,22 +179,21 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
 
     s2 = sx*sx + sy*sy
     gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
-    ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0) 
-    if abs: ctf = np.abs(ctf)
+    ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0)
+    if abs>=2: ctf = ctf*ctf
+    elif abs==1: ctf = np.abs(ctf)
 
     if plot_s2:
         s2 = np.sqrt(sx*sx + sy*sy)
         gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
         ctf_s2 = np.sin(gamma) * np.exp(-bfactor*s2/4.0) 
-        if abs: ctf_s2 = np.abs(ctf_s2)
+        if abs>=2: ctf_s2 = ctf_s2*ctf_s2
+        elif abs==1: ctf_s2 = np.abs(ctf_s2)
     else:
         ctf_s2 = None
     return ctf, ctf_s2
 
 st.title("CTF Simulation")
-col1, _, col2 = st.beta_columns((3, 0.1, 2))
-over_sample = col1.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6)
-plot_abs = col2.checkbox("plot amplitude", value=False)
 
 col1d, _, col2d = st.beta_columns((3, 0.1, 2))
 with col1d:
@@ -197,20 +202,23 @@ with col1d:
 
     s, s2, ctf = ctf1d(voltage, cs, ampcontrast, session_state.defocus, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs)
 
-    from bokeh.plotting import figure
+    from bokeh.plotting import figure, ColumnDataSource
     if plot1d_s2:
         x = s2
         x_label = "s^2 (1/Angstrom^2)"
+        hover_x_var = "s^2"
+        hover_x_val = "$x 1/A^2"
     else:
         x = s
         x_label = "s (1/Angstrom)"
-    if plot_abs:
-        y_label = "|Contrast Transfer Function|"
-    else:
-        y_label = "Contrast Transfer Function"
+        hover_x_var = "s"
+        hover_x_val = "$x 1/A"
+    y_label = f"{ctf_type}"
+    source = ColumnDataSource(data=dict(x=x, res=1/s, y=ctf))
     tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
-    fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, x_range=(0, x[-1]), tools=tools)
-    fig.line(x=x, y=ctf, line_width=2)
+    hover_tips = [(hover_x_var, hover_x_val), ("Res", "@res A"), (f"{ctf_type}", "$y")]
+    fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, x_range=(0, x[-1]), tools=tools, tooltips=hover_tips)
+    fig.line(x='x', y='y', source=source, line_width=2)
     st.bokeh_chart(fig, use_container_width=True)
 
     show_data = st.checkbox('show raw data', value=False)
@@ -219,8 +227,8 @@ with col1d:
         data[:,0] = x
         data[:,1] = 1./s
         data[:,2] = ctf
-        df = pd.DataFrame(data, columns=(x_label, "resolution (Angstrom)", y_label))
-        st.dataframe(df, width=900)
+        df = pd.DataFrame(data, columns=(x_label.rjust(15), "Res (Angstrom)".rjust(15), y_label.rjust(15)))
+        st.dataframe(df, width=600)
 
     st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
@@ -247,7 +255,7 @@ with col2d:
         st.image(image, caption="Orignal image", clamp=[image.min(), image.max()])
         # apply ctf to the image
         image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf)))
-        st.image(image2, caption="CTF applied", clamp=[image2.min(), image2.max()])
+        st.image(image2, caption=f"{ctf_type} applied", clamp=[image2.min(), image2.max()])
     else:
         emd_id_bad = emd_id
         emd_id = random.choice(emdb_ids)
