@@ -78,17 +78,19 @@ def main():
         else:
             emd_id = session_state.emd_id
         with st.beta_expander("Simulate the CTF effect on an image"):
-            url = st.text_input('Input an image url:', value="")
-            emd_id = st.text_input('or an EMDB ID:', value=emd_id)
+            input_txt = st.text_input('Input an EMDB ID or image url:', value=emd_id)
+            input_txt=input_txt.strip()
         image = None
         link = None
-        if len(url)>4: # higher priority than EMDB
+        if input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
+            url = input_txt
             image = get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
             if image is not None:
                 link = f'[Image Link]({url})'
             else:
                 st.warning(f"{url} is not a valid image link")
-        if image is None and emd_id:
+        else:   # default to an EMDB ID
+            emd_id = input_txt
             if emd_id in emdb_ids:
                 session_state.emd_id = emd_id
                 image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
@@ -121,7 +123,6 @@ def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesiz
 
 @st.cache()
 def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, abs, plot_s2=False):
-
     ds = 1./(apix*imagesize*over_sample)
     sx = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
     sy = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
@@ -141,7 +142,11 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
     elif abs==1: ctf = np.abs(ctf)
 
     if plot_s2:
-        s2 = np.sqrt(sx*sx + sy*sy)
+        ds2 = np.power(1./(2*apix), 2)/(imagesize*over_sample//2)
+        s2x = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds2
+        s2y = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds2
+        s2x, s2y = np.meshgrid(s2x, s2y, indexing='ij')
+        s2 = np.hypot(s2x, s2y)
         gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
         ctf_s2 = np.sin(gamma) * np.exp(-bfactor*s2/4.0) 
         if abs>=2: ctf_s2 = ctf_s2*ctf_s2
