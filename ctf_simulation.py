@@ -155,8 +155,7 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
         ctf_s2 = None
     return ctf, ctf_s2
 
-#@st.cache(ttl=24*60*60) # refresh every day
-@st.cache()
+@st.cache(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
     import pandas as pd
     emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/pdbe/emdb/emdb_schema3/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
