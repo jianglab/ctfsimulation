@@ -106,7 +106,7 @@ def main():
             image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf)))
             st.image(image2, caption=f"{ctf_type} applied", clamp=[image2.min(), image2.max()])
 
-@st.cache()
+@st.cache(persist=True, show_spinner=False)
 def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesize, over_sample, abs):
     ds = 1./(apix*imagesize*over_sample)
     s = np.arange(imagesize*over_sample//2+1, dtype=np.float)*ds
@@ -121,7 +121,7 @@ def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesiz
 
     return s, s2, ctf
 
-@st.cache()
+@st.cache(persist=True, show_spinner=False)
 def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, abs, plot_s2=False):
     ds = 1./(apix*imagesize*over_sample)
     sx = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
@@ -162,7 +162,7 @@ def get_emdb_ids():
     emdb_ids = list(emdb_ids.iloc[:,0].str.split('-', expand=True).iloc[:, 1].values)
     return emdb_ids
 
-@st.cache()
+@st.cache(persist=True, show_spinner=False)
 def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     emdb_ids = get_emdb_ids()
     if emd_id in emdb_ids:
@@ -171,7 +171,7 @@ def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None)
     else:
         return None
 
-@st.cache()
+@st.cache(persist=True, show_spinner=False)
 def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
     from skimage.io import imread
     try:
