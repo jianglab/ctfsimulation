@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import base64
 
 def main():
     session_state = SessionState_get(defocus=0.5, emd_id=0)
@@ -60,6 +61,7 @@ def main():
             data[:,2] = ctf
             df = pd.DataFrame(data, columns=(x_label.rjust(15), "Res (Angstrom)".rjust(15), y_label.rjust(15)))
             st.dataframe(df, width=600)
+            st.markdown(get_table_download_link(df), unsafe_allow_html=True)
 
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
@@ -190,6 +192,16 @@ def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
         image = -image + 1
     return image
 
+@st.cache(persist=True, show_spinner=False)
+def get_table_download_link(df):
+    """Generates a link allowing the data in a given panda dataframe to be downloaded
+    in:  dataframe
+    out: href string
+    """
+    csv = df.to_csv(index=False)
+    b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions necessary here
+    href = f'<a href="data:file/csv;base64,{b64}" download="ctf_curve_table.csv">Download the CTF data</a>'
+    return href
 
 # adapted from https://gist.github.com/tvst/036da038ab3e999a64497f42de966a92
 try:
