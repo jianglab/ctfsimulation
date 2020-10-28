@@ -9,7 +9,15 @@ with open(home+"/.streamlit/config.toml", "w") as fp:
     fp.write(f"[server]\nheadless = true\nenableCORS=false\nport = {os.path.expandvars('$PORT')}\n")
 with open(home+"/.heroku/python/lib/python3.7/site-packages/streamlit/static/index.html", "r+") as fp:
     txt = fp.read()
-    txt2 = txt.replace("<head>", "<head><script async src=\"https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6\"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-YV3ZFR8VG6');</script>")
+    txt2 = txt.replace("<head>", '''<head><!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-YV3ZFR8VG6');
+</script>''')
     fp.seek(0)
     fp.write(txt2)
     fp.truncate()
