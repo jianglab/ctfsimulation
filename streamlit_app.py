@@ -5,7 +5,7 @@ import base64
 def main():
     session_state = SessionState_get(defocus=0.5, emd_id=0)
 
-    st.beta_set_page_config(page_title="CTF Simulation", layout="wide")
+    st.set_page_config(page_title="CTF Simulation", layout="wide")
 
     with st.sidebar:    # sidebar at the left of the screen
         options = ('CTF', '|CTF|', 'CTF^2')
@@ -75,23 +75,29 @@ def main():
 
         import random
         emdb_ids = get_emdb_ids()
-        if session_state.emd_id==0:
-            emd_id = random.choice(emdb_ids)
+        if emdb_ids:
+            if session_state.emd_id==0:
+                emd_id = random.choice(emdb_ids)
+            else:
+                emd_id = session_state.emd_id
+            label = "Input an EMDB ID or image url:"
+            value = emd_id
         else:
-            emd_id = session_state.emd_id
+            label = "Input an image url:"
+            value = "https://images-na.ssl-images-amazon.com/images/I/61pSCxXEP8L._AC_SL1000_.jpg"
         with st.beta_expander("Simulate the CTF effect on an image"):
-            input_txt = st.text_input('Input an EMDB ID or image url:', value=emd_id)
-            input_txt=input_txt.strip()
+            input_txt = st.text_input(label=label, value=value)
+            input_txt = input_txt.strip()
         image = None
         link = None
         if input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
             url = input_txt
-            image = get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
+            image = get_image(url, invert_contrast=0, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
             if image is not None:
                 link = f'[Image Link]({url})'
             else:
                 st.warning(f"{url} is not a valid image link")
-        else:   # default to an EMDB ID
+        elif emdb_ids:   # default to an EMDB ID
             emd_id = input_txt
             if emd_id in emdb_ids:
                 session_state.emd_id = emd_id
@@ -101,12 +107,15 @@ def main():
                 emd_id_bad = emd_id
                 emd_id = random.choice(emdb_ids)
                 st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
+        elif len(input_txt):
+            st.warning(f"{input_txt} is not a valid image link")
         if image is not None:
             st.markdown(link, unsafe_allow_html=True)
             st.image(image, caption="Orignal image", clamp=[image.min(), image.max()])
             # apply ctf to the image
             image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf)))
-            st.image(image2, caption=f"{ctf_type} applied", clamp=[image2.min(), image2.max()])
+            clamp_min, clamp_max = np.percentile(image2, (5, 95))
+            st.image(image2, caption=f"{ctf_type} applied", clamp=(clamp_min, clamp_max))
 
 @st.cache(persist=True, show_spinner=False)
 def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesize, over_sample, abs):
@@ -159,9 +168,12 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
 
 @st.cache(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
-    import pandas as pd
-    emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/pdbe/emdb/emdb_schema3/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
-    emdb_ids = list(emdb_ids.iloc[:,0].str.split('-', expand=True).iloc[:, 1].values)
+    try:
+        import pandas as pd
+        emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/pdbe/emdb/emdb_schema3/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
+        emdb_ids = list(emdb_ids.iloc[:,0].str.split('-', expand=True).iloc[:, 1].values)
+    except:
+        emdb_ids = []
     return emdb_ids
 
 @st.cache(persist=True, show_spinner=False)
@@ -183,7 +195,7 @@ def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
     if output_shape:
         from skimage.transform import resize
         image = resize(image, output_shape=output_shape)
-    vmin, vmax = image.min(), image.max()
+    vmin, vmax = np.percentile(image, (5, 95))
     image = (image-vmin)/(vmax-vmin)    # set to range [0, 1]
     if invert_contrast<0: # detect if the image contrast should be inverted (i.e. to make background black)
         edge_vals = np.mean([image[0, :].mean(), image[-1, :].mean(), image[:, 0].mean(), image[:, -1].mean()])
@@ -202,6 +214,17 @@ def get_table_download_link(df):
     b64 = base64.b64encode(csv.encode()).decode()  # some strings <-> bytes conversions necessary here
     href = f'<a href="data:file/csv;base64,{b64}" download="ctf_curve_table.csv">Download the CTF data</a>'
     return href
+
+@st.cache(persist=True, show_spinner=False)
+def setup_anonymous_usage_tracking():
+    import os
+    with open(os.path.dirname(st.__file__)+"/static/index.html", "r+") as fp:
+        txt = fp.read()
+        if txt.find("gtag.js")==-1:
+            txt2 = txt.replace("<head>", '''<head><!-- Global site tag (gtag.js) - Google Analytics --><script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-YV3ZFR8VG6');</script>''')
+            fp.seek(0)
+            fp.write(txt2)
+            fp.truncate()
 
 # adapted from https://gist.github.com/tvst/036da038ab3e999a64497f42de966a92
 try:
@@ -300,4 +323,6 @@ def SessionState_get(**kwargs):
 
     return this_session._custom_session_state
 
-main()
+if __name__ == "__main__":
+    setup_anonymous_usage_tracking()
+    main()
