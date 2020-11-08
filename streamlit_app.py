@@ -217,14 +217,19 @@ def get_table_download_link(df):
 
 @st.cache(persist=True, show_spinner=False)
 def setup_anonymous_usage_tracking():
-    import os
-    with open(os.path.dirname(st.__file__)+"/static/index.html", "r+") as fp:
-        txt = fp.read()
-        if txt.find("gtag.js")==-1:
-            txt2 = txt.replace("<head>", '''<head><!-- Global site tag (gtag.js) - Google Analytics --><script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-YV3ZFR8VG6');</script>''')
-            fp.seek(0)
-            fp.write(txt2)
-            fp.truncate()
+    try:
+        import os, stat
+        index_file = os.path.dirname(st.__file__) + "/static/index.html"
+        os.chmod(index_file, stat.S_IRUSR|stat.S_IWUSR|stat.S_IROTH)
+        with open(index_file, "r+") as fp:
+            txt = fp.read()
+            if txt.find("gtag.js")==-1:
+                txt2 = txt.replace("<head>", '''<head><!-- Global site tag (gtag.js) - Google Analytics --><script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-YV3ZFR8VG6');</script>''')
+                fp.seek(0)
+                fp.write(txt2)
+                fp.truncate()
+    except:
+        pass
 
 # adapted from https://gist.github.com/tvst/036da038ab3e999a64497f42de966a92
 try:
