@@ -26,14 +26,13 @@ def main():
 
     # right-side main panel
     st.title("CTF Simulation")
-    col1d, _, col2d = st.beta_columns((3, 0.1, 2))
-    with col1d: # left side column
-        label = 'plot s^2 as x-axis'
-        plot1d_s2 = st.checkbox(label, value=False)
+    col1, _, col2 = st.beta_columns((3, 0.1, 2))
+    with col1:
+        plot1d_s2 = st.checkbox(label='plot s^2 as x-axis', value=False)
 
         s, s2, ctf = ctf1d(voltage, cs, ampcontrast, session_state.defocus, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs)
 
-        from bokeh.plotting import figure, ColumnDataSource
+        from bokeh.plotting import figure
         if plot1d_s2:
             x = s2
             x_label = "s^2 (1/Å^2)"
@@ -45,9 +44,9 @@ def main():
             hover_x_var = "s"
             hover_x_val = "$x 1/Å"
         y_label = f"{ctf_type}"
-        source = ColumnDataSource(data=dict(x=x, res=1/s, y=ctf))
+        source = dict(x=x, res=1/s, y=ctf)
         tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
-        hover_tips = [(hover_x_var, hover_x_val), ("Res", "@res A"), (f"{ctf_type}", "$y")]
+        hover_tips = [("Res", "@res Å"), (hover_x_var, hover_x_val), (f"{ctf_type}", "$y")]
         fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, x_range=(0, x[-1]), tools=tools, tooltips=hover_tips)
         fig.line(x='x', y='y', source=source, line_width=2)
         st.bokeh_chart(fig, use_container_width=True)
@@ -65,14 +64,63 @@ def main():
 
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
-    with col2d: # right-side column
-        label = 'plot s^2 as radius'
-        plot2d_s2 = st.checkbox(label, value=False)
+    with col2:
+        plot2d_s2 = st.checkbox(label='plot s^2 as radius', value=False)
+        st.text("") # workaround for a silly layout bug in streamlit 
 
-        ctf, ctf_s2 = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs, plot2d_s2)
-        ctf_to_plot = ctf_s2 if ctf_s2 is not None else ctf
-        st.image(ctf_to_plot, clamp=[ctf.min(), ctf.max()])
+        (ctf, ds), (ctf_s2, ds2) = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs, plot2d_s2)
+        ctf_to_plot = ctf_s2 if plot2d_s2 else ctf
+        dxy = ds2 if plot2d_s2 else ds
 
+        w, h = ctf_to_plot.shape
+        tools = 'box_zoom,crosshair,pan,reset,save,wheel_zoom'
+        fig2d = figure(frame_width=w, frame_height=h,
+            x_range=(-w//2*dxy, (w//2-1)*dxy), y_range=(-h//2*dxy, (h//2-1)*dxy),
+            tools=tools)
+        fig2d.grid.visible = False
+        fig2d.axis.visible = False
+        fig2d.toolbar_location = None
+
+        sx_grid, sy_grid = np.meshgrid(np.arange(-w//2, w//2)*ds, np.arange(-h//2, h//2)*ds, indexing='ij', copy=False)
+        ang_grid = np.fmod(-np.rad2deg(np.arctan2(sy_grid, sx_grid))+90.+360., 360.)
+        s_grid = np.hypot(sx_grid, sy_grid)
+        res_grid = 1./s_grid
+        
+        if plot2d_s2:
+            s2x_grid, s2y_grid = np.meshgrid(np.arange(-w//2, w//2)*ds2, np.arange(-h//2, h//2)*ds2, indexing='ij', copy=False)
+            s2_grid = np.hypot(s2x_grid, s2y_grid)
+            s_grid = np.sqrt(s2_grid)
+
+            source_data = dict(ctf=[ctf_to_plot], x=[-w//2*dxy], y=[-h//2*dxy], dw=[w*dxy], dh=[h*dxy], 
+                res=[res_grid], s=[s_grid], s2=[s2_grid], ang=[ang_grid])
+            tooltips = [
+                ("Res", "@res Å"),
+                ("s", "@s 1/Å"),
+                ("s2", "@s2 1/Å^2"),
+                ('ang', '@ang °'),
+                (ctf_type, '@ctf')
+            ]
+        else:
+            source_data = dict(ctf=[ctf_to_plot], x=[-w//2*dxy], y=[-h//2*dxy], dw=[w*dxy], dh=[h*dxy],
+                res=[res_grid], s=[s_grid], ang=[ang_grid])
+            tooltips = [
+                ("Res", "@res Å"),
+                ("s", "@s 1/Å"),
+                ('ang', '@ang °'),
+                (ctf_type, '@ctf')
+            ]
+
+        from bokeh.models import LinearColorMapper
+        color_mapper = LinearColorMapper(palette='Greys256')    # Greys256, Viridis256
+        
+        fig2d_image = fig2d.image(source=source_data, image='ctf', color_mapper=color_mapper, x='x', y='y', dw='dw', dh='dh')
+        
+        from bokeh.models.tools import HoverTool
+        image_hover = HoverTool(renderers=[fig2d_image], tooltips=tooltips)
+        fig2d.add_tools(image_hover)
+
+        st.bokeh_chart(fig2d, use_container_width=True)
+        
         import random
         emdb_ids = get_emdb_ids()
         if emdb_ids:
@@ -139,7 +187,7 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
     sy = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
     sx, sy = np.meshgrid(sx, sy, indexing='ij')
 
-    theta = np.arctan2(sy, sx)
+    theta = -np.arctan2(sy, sx)
     defocus2d = defocus + dfdiff/2*np.cos( 2*(theta-dfang*np.pi/180.))
 
     wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)
@@ -164,7 +212,8 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
         elif abs==1: ctf_s2 = np.abs(ctf_s2)
     else:
         ctf_s2 = None
-    return ctf, ctf_s2
+        ds2 = None
+    return (ctf, ds), (ctf_s2, ds2)
 
 @st.cache(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
