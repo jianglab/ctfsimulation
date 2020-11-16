@@ -11,15 +11,15 @@ def main():
         options = ('CTF', '|CTF|', 'CTF^2')
         ctf_type = st.selectbox(label='CTF type', options=options)
         plot_abs = options.index(ctf_type)
-        session_state.defocus = st.number_input('defocus (micrometer)', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.01, format="%.4f")
+        session_state.defocus = st.number_input('defocus (µm)', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.01, format="%.4f")
         session_state.defocus = st.slider('', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.01, format="%.4f")
-        dfdiff = st.number_input('astigmatism mag (micrometer)', value=0.0, min_value=0.0, max_value=session_state.defocus, step=0.01, format="%.4f")
-        dfang = st.number_input('astigmatism angle (degree)', value=0.0, min_value=0.0, max_value=360., step=1.0)
-        phaseshift = st.number_input('phase shift (degree)', value=0.0, min_value=0.0, max_value=360., step=1.0)
-        apix = st.number_input('pixel size (Angstrom/pixel)', value=1.0, min_value=0.1, max_value=10., step=0.01)
+        dfdiff = st.number_input('astigmatism mag (µm)', value=0.0, min_value=0.0, max_value=session_state.defocus, step=0.01, format="%.4f")
+        dfang = st.number_input('astigmatism angle (°)', value=0.0, min_value=0.0, max_value=360., step=1.0)
+        phaseshift = st.number_input('phase shift (°)', value=0.0, min_value=0.0, max_value=360., step=1.0)
+        apix = st.number_input('pixel size (Å/pixel)', value=1.0, min_value=0.1, max_value=10., step=0.01)
         imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096, step=4)
         over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6, step=1)
-        bfactor = st.number_input('b-factor (Angstrom^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
+        bfactor = st.number_input('b-factor (Å^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
         voltage = st.number_input('voltage (kV)', value=300, min_value=10, max_value=3000, step=100)
         cs = st.number_input('cs (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
         ampcontrast = st.number_input('ampltude contrast (percent)', value=10., min_value=0.0, max_value=100., step=10.0)
@@ -36,14 +36,14 @@ def main():
         from bokeh.plotting import figure, ColumnDataSource
         if plot1d_s2:
             x = s2
-            x_label = "s^2 (1/Angstrom^2)"
+            x_label = "s^2 (1/Å^2)"
             hover_x_var = "s^2"
-            hover_x_val = "$x 1/A^2"
+            hover_x_val = "$x 1/Å^2"
         else:
             x = s
-            x_label = "s (1/Angstrom)"
+            x_label = "s (1/Å)"
             hover_x_var = "s"
-            hover_x_val = "$x 1/A"
+            hover_x_val = "$x 1/Å"
         y_label = f"{ctf_type}"
         source = ColumnDataSource(data=dict(x=x, res=1/s, y=ctf))
         tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
@@ -59,7 +59,7 @@ def main():
             data[:,0] = x
             data[:,1] = 1./s
             data[:,2] = ctf
-            df = pd.DataFrame(data, columns=(x_label.rjust(15), "Res (Angstrom)".rjust(15), y_label.rjust(15)))
+            df = pd.DataFrame(data, columns=(x_label.rjust(15), "Res (Å)".rjust(15), y_label.rjust(15)))
             st.dataframe(df, width=600)
             st.markdown(get_table_download_link(df), unsafe_allow_html=True)
 
@@ -170,7 +170,7 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
 def get_emdb_ids():
     try:
         import pandas as pd
-        emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/pdbe/emdb/emdb_schema3/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
+        emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/emdb/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
         emdb_ids = list(emdb_ids.iloc[:,0].str.split('-', expand=True).iloc[:, 1].values)
     except:
         emdb_ids = []
