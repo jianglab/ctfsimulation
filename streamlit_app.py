@@ -19,7 +19,19 @@ def main():
         apix = st.number_input('pixel size (Å/pixel)', value=1.0, min_value=0.1, max_value=10., step=0.01)
         imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096, step=4)
         over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6, step=1)
-        bfactor = st.number_input('b-factor (Å^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
+        
+        with st.beta_expander("envelope functions", expanded=False):
+            bfactor = st.number_input('b-factor (Å^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
+            alpha = st.number_input('beam convergence semi-angle (mrad)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+            dE = st.number_input('voltage spread (volt)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+            dI = st.number_input('objective lens current spread (ppm)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+            if dE or dI:
+                cc = st.number_input('cc (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
+            else:
+                cc = 0
+            dZ = st.number_input('sample vertical motion (Å)', value=0.0, min_value=0.0, max_value=10000.0, step=10.0)
+            dXY = st.number_input('sample horizontal motion (Å)', value=0.0, min_value=0.0, max_value=1000.0, step=1.0)
+
         voltage = st.number_input('voltage (kV)', value=300, min_value=10, max_value=3000, step=100)
         cs = st.number_input('cs (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
         ampcontrast = st.number_input('ampltude contrast (percent)', value=10., min_value=0.0, max_value=100., step=10.0)
@@ -30,7 +42,7 @@ def main():
     with col1:
         plot1d_s2 = st.checkbox(label='plot s^2 as x-axis', value=False)
 
-        s, s2, ctf = ctf1d(voltage, cs, ampcontrast, session_state.defocus, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs)
+        s, s2, ctf = ctf1d(voltage, cs, ampcontrast, session_state.defocus, phaseshift, bfactor, alpha, cc, dE, dI, dZ, dXY, apix, imagesize, over_sample, plot_abs)
 
         from bokeh.plotting import figure
         if plot1d_s2:
@@ -66,9 +78,9 @@ def main():
 
     with col2:
         plot2d_s2 = st.checkbox(label='plot s^2 as radius', value=False)
-        st.text("") # workaround for a silly layout bug in streamlit 
+        st.text("") # workaround for a layout bug in streamlit 
 
-        (ctf, ds), (ctf_s2, ds2) = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, plot_abs, plot2d_s2)
+        (ctf, ds), (ctf_s2, ds2) = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, alpha, cc, dE, dI, dZ, dXY, apix, imagesize, over_sample, plot_abs, plot2d_s2)
         ctf_to_plot = ctf_s2 if plot2d_s2 else ctf
         dxy = ds2 if plot2d_s2 else ds
 
@@ -166,22 +178,32 @@ def main():
             st.image(image2, caption=f"{ctf_type} applied", clamp=(clamp_min, clamp_max))
 
 @st.cache(persist=True, show_spinner=False)
-def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, apix, imagesize, over_sample, abs):
+def ctf1d(voltage, cs, ampcontrast, defocus, phaseshift, bfactor, alpha, cc, dE, dI, dZ, dXY, apix, imagesize, over_sample, abs):
     ds = 1./(apix*imagesize*over_sample)
     s = np.arange(imagesize*over_sample//2+1, dtype=np.float)*ds
     s2 = s*s
-    wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)
+    wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)  # Angstrom
     wl3 = np.power(wl, 3)
     phaseshift = phaseshift * np.pi / 180.0 + np.arcsin(ampcontrast/100.)
     gamma =2*np.pi*(-0.5*defocus*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
-    ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0)
+    
+    from scipy.special import j0, sinc
+    env = np.ones_like(gamma)
+    if bfactor: env *= np.exp(-bfactor*s2/4.0)
+    if alpha: env *= np.exp(-np.power(np.pi*alpha*(1.0e7*cs*wl*wl*s*s*s-1e4*defocus*s), 2.0)*1e-6)
+    if dE: env *= np.exp(-np.power(np.pi*cc*wl*s*s* dE/voltage, 2.0)/(16*np.log(2))*1e8)
+    if dI: env *= np.exp(-np.power(np.pi*cc*wl*s*s* dI,         2.0)/(4*np.log(2))*1e2)
+    if dZ: env *= j0(np.pi*dZ*wl*s*s)
+    if dXY: env *= sinc(np.pi*dXY*s)
+
+    ctf = np.sin(gamma) * env
     if abs>=2: ctf = ctf*ctf
     elif abs==1: ctf = np.abs(ctf)
 
     return s, s2, ctf
 
 @st.cache(persist=True, show_spinner=False)
-def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor, apix, imagesize, over_sample, abs, plot_s2=False):
+def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor, alpha, cc, dE, dI, dZ, dXY, apix, imagesize, over_sample, abs, plot_s2=False):
     ds = 1./(apix*imagesize*over_sample)
     sx = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
     sy = np.arange(-imagesize*over_sample//2, imagesize*over_sample//2) * ds
@@ -190,13 +212,24 @@ def ctf2d(voltage, cs, ampcontrast, defocus, dfdiff, dfang, phaseshift, bfactor,
     theta = -np.arctan2(sy, sx)
     defocus2d = defocus + dfdiff/2*np.cos( 2*(theta-dfang*np.pi/180.))
 
-    wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)
+    wl = 12.2639 / np.sqrt(voltage * 1000.0 + 0.97845 * voltage * voltage)  # Angstrom
     wl3 = np.power(wl, 3)
     phaseshift = phaseshift * np.pi / 180.0 + np.arcsin(ampcontrast/100.)
 
     s2 = sx*sx + sy*sy
     gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*cs*1e7*wl**3*s2**2) - phaseshift
-    ctf = np.sin(gamma) * np.exp(-bfactor*s2/4.0)
+
+    from scipy.special import j0, sinc
+    s = np.sqrt(s2)
+    env = np.ones_like(gamma)
+    if bfactor: env *= np.exp(-bfactor*s2/4.0)
+    if alpha: env *= np.exp(-np.power(np.pi*alpha*(1.0e7*cs*wl*wl*s*s*s-1e4*defocus*s), 2.0)*1e-6)
+    if dE: env *= np.exp(-np.power(np.pi*cc*wl*s*s* dE/voltage, 2.0)/(16*np.log(2))*1e8)
+    if dI: env *= np.exp(-np.power(np.pi*cc*wl*s*s* dI,         2.0)/(4*np.log(2))*1e2)
+    if dZ: env *= j0(np.pi*dZ*wl*s*s)
+    if dXY: env *= sinc(np.pi*dXY*s)
+
+    ctf = np.sin(gamma) * env
     if abs>=2: ctf = ctf*ctf
     elif abs==1: ctf = np.abs(ctf)
 
