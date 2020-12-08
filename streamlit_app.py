@@ -23,7 +23,7 @@ def main():
         with st.beta_expander("envelope functions", expanded=False):
             bfactor = st.number_input('b-factor (Å^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
             alpha = st.number_input('beam convergence semi-angle (mrad)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
-            dE = st.number_input('voltage spread (volt)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+            dE = st.number_input('energy spread (eV)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
             dI = st.number_input('objective lens current spread (ppm)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
             if dE or dI:
                 cc = st.number_input('cc (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
