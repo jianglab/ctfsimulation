@@ -1,1 +1,1 @@
-web: python setup.py && streamlit run streamlit_app.py
+web: python setup.py && streamlit run ctf_simulation.py
