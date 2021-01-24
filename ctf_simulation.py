@@ -56,6 +56,11 @@ def main():
         session_state.defocus = st.number_input('defocus (µm)', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.01, format="%.4f")
         session_state.defocus = st.slider('', min_value=0.0, max_value=10.0, value=session_state.defocus, step=0.01, format="%.4f")
         dfdiff = st.number_input('astigmatism mag (µm)', value=0.0, min_value=0.0, max_value=session_state.defocus, step=0.01, format="%.4f")
+        if dfdiff:
+            value = ctf_type=='CTF^2'
+            rotavg = st.checkbox(label='plot rotational average', value=value)
+        else:
+            rotavg = False
         dfang = st.number_input('astigmatism angle (°)', value=0.0, min_value=0.0, max_value=360., step=1.0)
         phaseshift = st.number_input('phase shift (°)', value=0.0, min_value=0.0, max_value=360., step=1.0)
         apix = st.number_input('pixel size (Å/pixel)', value=1.0, min_value=0.1, max_value=10., step=0.01)
@@ -64,15 +69,15 @@ def main():
         
         with st.beta_expander("envelope functions", expanded=False):
             bfactor = st.number_input('b-factor (Å^2)', value=0.0, min_value=0.0, max_value=1000.0, step=10.0)
-            alpha = st.number_input('beam convergence semi-angle (mrad)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
-            dE = st.number_input('energy spread (eV)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
-            dI = st.number_input('objective lens current spread (ppm)', value=0.0, min_value=0.0, max_value=10.0, step=0.1)
+            alpha = st.number_input('beam convergence semi-angle (mrad)', value=0.0, min_value=0.0, max_value=10.0, step=0.05)
+            dE = st.number_input('energy spread (eV)', value=0.0, min_value=0.0, max_value=10.0, step=0.2)
+            dI = st.number_input('objective lens current spread (ppm)', value=0.0, min_value=0.0, max_value=10.0, step=0.2)
             if dE or dI:
                 cc = st.number_input('cc (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
             else:
                 cc = 0
-            dZ = st.number_input('sample vertical motion (Å)', value=0.0, min_value=0.0, max_value=10000.0, step=10.0)
-            dXY = st.number_input('sample horizontal motion (Å)', value=0.0, min_value=0.0, max_value=1000.0, step=1.0)
+            dZ = st.number_input('sample vertical motion (Å)', value=0.0, min_value=0.0, max_value=10000.0, step=20.0)
+            dXY = st.number_input('sample horizontal motion (Å)', value=0.0, min_value=0.0, max_value=1000.0, step=0.2)
 
         voltage = st.number_input('voltage (kV)', value=300, min_value=10, max_value=3000, step=100)
         cs = st.number_input('cs (mm)', value=2.7, min_value=0.0, max_value=10.0, step=0.1)
@@ -117,7 +122,7 @@ def main():
             legends.append(LegendItem(label=label, renderers=[line]))
             raw_data.append((label, ctf))
 
-        if dfdiff and ctf_type=='CTF^2':
+        if rotavg:
             _, _, ctf_2d = ctf2d(voltage, cs, ampcontrast, session_state.defocus, dfdiff, dfang, phaseshift, bfactor, alpha, cc, dE, dI, dZ, dXY, apix, imagesize, over_sample, plot_abs, plot1d_s2)
             rad_profile = compute_radial_profile(ctf_2d)
             source = dict(x=s2 if plot1d_s2 else s, res=1/s, y=rad_profile)
@@ -447,7 +452,7 @@ def setup_anonymous_usage_tracking():
         index_file.chmod(stat.S_IRUSR|stat.S_IWUSR|stat.S_IRGRP|stat.S_IROTH)
         txt = index_file.read_text()
         if txt.find("gtag/js?")==-1:
-            txt = txt.replace("<head>", '''<head><script async src="https://www.googletagmanager.com/gtag/js?id=G-8Z99BDVHTC"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-8Z99BDVHTC');</script>''')
+            txt = txt.replace("<head>", '''<head><script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script><script>window.dataLayer = window.dataLayer || [];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', 'G-YV3ZFR8VG6');</script>''')
             index_file.write_text(txt)
     except:
         pass

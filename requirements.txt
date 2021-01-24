@@ -1,4 +1,4 @@
-streamlit==0.74.1
+streamlit==0.75
 pandas==1.1.4
 numpy==1.19.4
 scipy==1.5.4
