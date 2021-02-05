@@ -10,5 +10,3 @@ You can also embed the Web app into your own Website using an [iframe](https://w
 ```html
 <iframe src="https://ctf-simulation.herokuapp.com/?embed=true" style='width: 100%; height: 740px; overflow: visible; margin: 0px; resize: both; border-style:none;'></iframe>
 ```
-<iframe src="https://ctf-simulation.herokuapp.com/?embed=true" style='width: 100%; height: 740px; overflow: visible; margin: 0px; resize: both; border-style:none;'></iframe>
-
