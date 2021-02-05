@@ -54,7 +54,7 @@ def main():
     else:
         st.title(title)
         col1 = st.sidebar
-        col2, col3 = st.beta_columns((2, 3))
+        col2, col3 = st.beta_columns((5, 2))
 
     with col1:    # sidebar at the left of the screen
         ctfs = session_state.ctfs
