@@ -43,56 +43,90 @@ import numpy as np
 
 def main():
     session_state = SessionState_get(ctfs=[CTF()], emd_id=0)
+    query_params = st.experimental_get_query_params()
+    embed = "embed" in query_params
 
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
-    st.title(title)
 
-    with st.sidebar:    # sidebar at the left of the screen
-        options = ('CTF', '|CTF|', 'CTF^2')
-        ctf_type = st.selectbox(label='CTF type', options=options)
-        plot_abs = options.index(ctf_type)
-        n = st.number_input('# of CTFs', value=1, min_value=1, step=1)
+    if embed:
+        col1, col2 = st.beta_columns((1, 5))
+    else:
+        st.title(title)
+        col1 = st.sidebar
+        col2, col3 = st.beta_columns((2, 3))
+
+    with col1:    # sidebar at the left of the screen
         ctfs = session_state.ctfs
+        if embed:
+            ctf_type = 'CTF'
+            plot_abs = 0
+            n = 1
+        else:
+            options = ('CTF', '|CTF|', 'CTF^2')
+            ctf_type = st.selectbox(label='CTF type', options=options)
+            plot_abs = options.index(ctf_type)
+            n = st.number_input('# of CTFs', value=1, min_value=1, step=1)
         if n>len(ctfs):
             ctfs += [ CTF() for i in range(n-len(ctfs)) ]
         if n>1:
-            i = st.number_input('CTF i=?', min_value=1, max_value=n, value=1, step=1)
+            i = st.number_input('CTF i=?', value=1, min_value=1, max_value=n, step=1)
             i -= 1
         else:
             i = 0
-        ctfs[i].defocus = st.number_input('defocus (µm)', min_value=0.0, value=ctfs[i].defocus, step=0.1, format="%.5g")
-        ctfs[i].defocus = st.slider('', min_value=0.0, value=ctfs[i].defocus, step=0.1, format="%.5g")
-        ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=ctfs[i].dfdiff, min_value=0.0, step=0.01, format="%g")
-        if n==1 and ctfs[i].dfdiff:
-            value = ctf_type=='CTF^2'
-            rotavg = st.checkbox(label='plot rotational average', value=value)
-        else:
+        value = ctfs[i].defocus if n>1 else 0.5
+        ctfs[i].defocus = st.number_input('defocus (µm)', value=value, min_value=0.0, step=0.1, format="%.5g", key=f"defocus-{i}")
+        if embed:
             rotavg = False
-        ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=ctfs[i].dfang, min_value=0.0, max_value=360., step=1.0, format="%g")
-        ctfs[i].phaseshift = st.number_input('phase shift (°)', value=ctfs[i].phaseshift, min_value=0.0, max_value=360., step=1.0, format="%g")
+        else:
+            value = ctfs[i].dfdiff if n>1 else 0.0
+            ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=value, min_value=0.0, step=0.01, format="%g")
+            if n==1 and ctfs[i].dfdiff:
+                value = ctf_type=='CTF^2'
+                rotavg = st.checkbox(label='plot rotational average', value=value)
+            else:
+                rotavg = False
+            value = ctfs[i].dfang if n>1 else 0.0
+            ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
+        value = ctfs[i].phaseshift if n>1 else 0.0
+        ctfs[i].phaseshift = st.number_input('phase shift (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
         apix = st.number_input('pixel size (Å/pixel)', value=1.0, min_value=0.1, step=0.01, format="%g")
-        imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096, step=4)
-        over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6, step=1)
+        if embed:
+            imagesize = 2048
+            over_sample = 1
+        else:
+            imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096, step=4)
+            over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6, step=1)
         
-        with st.beta_expander("envelope functions", expanded=False):
-            ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=ctfs[i].bfactor, min_value=0.0, step=10.0, format="%g")
-            ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=ctfs[i].alpha, min_value=0.0, step=0.05, format="%g")
-            ctfs[i].dE = st.number_input('energy spread (eV)', value=ctfs[i].dE, min_value=0.0, step=0.2, format="%g")
-            ctfs[i].dI = st.number_input('objective lens current spread (ppm)', value=ctfs[i].dI, min_value=0.0, step=0.2, format="%g")
-            if ctfs[i].dE or ctfs[i].dI:
-                ctfs[i].cc = st.number_input('cc (mm)', value=ctfs[i].cc, min_value=0.0, step=0.1, format="%g")
-            ctfs[i].dZ = st.number_input('sample vertical motion (Å)', value=ctfs[i].dZ, min_value=0.0, step=20.0, format="%g")
-            ctfs[i].dXY = st.number_input('sample horizontal motion (Å)', value=ctfs[i].dXY, min_value=0.0, step=0.2, format="%g")
+            with st.beta_expander("envelope functions", expanded=False):
+                value = ctfs[i].bfactor if n>1 else 0.0
+                ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=value, min_value=0.0, step=10.0, format="%g")
+                value = ctfs[i].alpha if n>1 else 0.0
+                ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=value, min_value=0.0, step=0.05, format="%g")
+                value = ctfs[i].dE if n>1 else 0.0
+                ctfs[i].dE = st.number_input('energy spread (eV)', value=value, min_value=0.0, step=0.2, format="%g")
+                value = ctfs[i].dI if n>1 else 0.0
+                ctfs[i].dI = st.number_input('objective lens current spread (ppm)', value=value, min_value=0.0, step=0.2, format="%g")
+                if ctfs[i].dE or ctfs[i].dI:
+                    value = ctfs[i].cc if n>1 else 2.7
+                    ctfs[i].cc = st.number_input('cc (mm)', value=value, min_value=0.0, step=0.1, format="%g")
+                value = ctfs[i].dZ if n>1 else 0.0
+                ctfs[i].dZ = st.number_input('sample vertical motion (Å)', value=value, min_value=0.0, step=20.0, format="%g")
+                value = ctfs[i].dXY if n>1 else 0.0
+                ctfs[i].dXY = st.number_input('sample horizontal motion (Å)', value=value, min_value=0.0, step=0.2, format="%g")
 
-        ctfs[i].voltage = st.number_input('voltage (kV)', value=ctfs[i].voltage, min_value=10., step=100., format="%g")
-        ctfs[i].cs = st.number_input('cs (mm)', value=ctfs[i].cs, min_value=0.0, step=0.1, format="%g")
-        ctfs[i].ampcontrast = st.number_input('ampltude contrast (percent)', value=ctfs[i].ampcontrast, min_value=0.0, max_value=100., step=10.0, format="%g")
+        value = ctfs[i].voltage if n>1 else 300.0
+        ctfs[i].voltage = st.number_input('voltage (kV)', value=value, min_value=10., step=100., format="%g")
+        value = ctfs[i].cs if n>1 else 2.7
+        ctfs[i].cs = st.number_input('cs (mm)', value=value, min_value=0.0, step=0.1, format="%g")
+        value = ctfs[i].ampcontrast if n>1 else 7.0
+        ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=value, min_value=0.0, max_value=100., step=10.0, format="%g")
 
-    # right-side main panel
-    col1, col2 = st.beta_columns((3, 2))
-    with col1:
-        plot1d_s2 = st.checkbox(label='plot s^2 as x-axis', value=False)
+    with col2:
+        if not embed:
+            plot1d_s2 = st.checkbox(label='plot s^2 as x-axis', value=False)
+        else:
+            plot1d_s2 = False
 
         from bokeh.plotting import figure
         from bokeh.models import LegendItem
@@ -169,27 +203,30 @@ def main():
             fig.js_on_event(DoubleTap, toggle_legend_js)
         st.bokeh_chart(fig, use_container_width=True)
 
-        show_data = st.checkbox('show raw data', value=False)
-        if show_data:
-            import pandas as pd
-            data = np.zeros((len(x), 2 + len(raw_data)))
-            data[:,0] = x
-            data[:,1] = 1./s
-            columns = [x_label, "Res (Å)"]
-            for i, (label, ctf) in enumerate(raw_data):
-                data[:,2+i] = ctf
-                if len(raw_data)>1:
-                    columns.append(y_label+' '+label)
-                else:
-                    columns.append(y_label)
-            columns = [col.rjust(12) for col in columns]
-            df = pd.DataFrame(data, columns=columns)
-            st.dataframe(df, width=None)
-            st.markdown(get_table_download_link(df), unsafe_allow_html=True)
+        if not embed:
+            show_data = st.checkbox('show raw data', value=False)
+            if show_data:
+                import pandas as pd
+                data = np.zeros((len(x), 2 + len(raw_data)))
+                data[:,0] = x
+                data[:,1] = 1./s
+                columns = [x_label, "Res (Å)"]
+                for i, (label, ctf) in enumerate(raw_data):
+                    data[:,2+i] = ctf
+                    if len(raw_data)>1:
+                        columns.append(y_label+' '+label)
+                    else:
+                        columns.append(y_label)
+                columns = [col.rjust(12) for col in columns]
+                df = pd.DataFrame(data, columns=columns)
+                st.dataframe(df, width=None)
+                st.markdown(get_table_download_link(df), unsafe_allow_html=True)
 
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
-    with col2:
+    if embed: return
+
+    with col3:
         plot2d_s2 = st.checkbox(label='plot s^2 as radius', value=False)
         st.text("") # workaround for a layout bug in streamlit 
 
