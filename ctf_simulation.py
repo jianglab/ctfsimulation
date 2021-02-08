@@ -440,7 +440,7 @@ class CTF:
         from scipy.special import j0, sinc
         env = np.ones_like(gamma)
         if self.bfactor: env *= np.exp(-self.bfactor*s2/4.0)
-        if self.alpha: env *= np.exp(-np.power(np.pi*self.alpha*(1.0e7*cs*wl*wl*s*s*s-1e4*defocus_final*s), 2.0)*1e-6)
+        if self.alpha: env *= np.exp(-np.power(np.pi*self.alpha*(1.0e7*self.cs*wl*wl*s*s*s-1e4*defocus_final*s), 2.0)*1e-6)
         if self.dE: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dE/self.voltage, 2.0)/(16*np.log(2))*1e8)
         if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
