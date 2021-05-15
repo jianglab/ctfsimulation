@@ -222,6 +222,8 @@ def main():
                 st.dataframe(df, width=None)
                 st.markdown(get_table_download_link(df), unsafe_allow_html=True)
 
+            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
+
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
     if embed: return
@@ -229,6 +231,8 @@ def main():
     with col3:
         plot2d_s2 = st.checkbox(label='plot s^2 as radius', value=False)
         st.text("") # workaround for a layout bug in streamlit 
+
+        show_color = False
 
         fig2ds = []
         for i in range(n):
@@ -238,7 +242,7 @@ def main():
                 title = f"{ctf_type} - {i+1}"
             else:
                 title = f"{ctf_type}"
-            fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, plot2d_s2, title=title)
+            fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, title, plot2d_s2, show_color)
             fig2ds.append(fig2d)
         if len(fig2ds)>1:
             from bokeh.models import CrosshairTool
@@ -251,54 +255,63 @@ def main():
         else:
             st.bokeh_chart(fig2d, use_container_width=True)
         
-        with st.beta_expander("Simulate the CTF effect on an image"):
+        with st.beta_expander("Simulate the CTF effect"):
+            input_modes = ["Delta Function"]
             emdb_ids = get_emdb_ids()
             if emdb_ids:
-                input_modes = ["Random EMDB ID", "Input an EMDB ID or image url:"]
-                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=0)
-                if input_mode == "Random EMDB ID":
-                    st.button(label="Change EMDB ID")
+                input_modes += ["Random EMDB ID", "Input an EMDB ID"]
+            input_modes += ["Input an image url"]
+            input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=0)
+            if input_mode == "Random EMDB ID":
+                st.button(label="Change EMDB ID")
+                import random
+                emd_id = random.choice(emdb_ids)
+                input_txt = f"EMD-{emd_id}"
+            elif input_mode == "Input an EMDB ID":
+                if session_state.emd_id==0:
                     import random
                     emd_id = random.choice(emdb_ids)
-                    input_txt = emd_id
                 else:
-                    if session_state.emd_id==0:
-                        import random
-                        emd_id = random.choice(emdb_ids)
-                    else:
-                        emd_id = session_state.emd_id        
-                    label = "Input an EMDB ID or image url:"
-                    value = emd_id
-                    input_txt = st.text_input(label=label, value=value).strip()
-            else:
+                    emd_id = session_state.emd_id        
+                label = "Input an EMDB ID"
+                value = f"EMD-{emd_id}"
+                input_txt = st.text_input(label=label, value=value).strip()
+            elif input_mode == "Input an image url":
                 label = "Input an image url:"
                 value = "https://images-na.ssl-images-amazon.com/images/I/61pSCxXEP8L._AC_SL1000_.jpg"
                 input_txt = st.text_input(label=label, value=value).strip()
+        
         image = None
         link = None
-        if input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
-            url = input_txt
-            image = get_image(url, invert_contrast=0, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
-            if image is not None:
-                link = f'[Image Link]({url})'
-            else:
-                st.warning(f"{url} is not a valid image link")
-        elif emdb_ids:   # default to an EMDB ID
-            emd_id = input_txt
+        if input_mode == "Delta Function":
+            image = np.zeros_like(ctf_2d)
+            ny, nx = image.shape
+            image[ny//2, nx//2] = 255
+        elif emdb_ids and input_txt.startswith("EMD-"):
+            emd_id = input_txt[4:]
             if emd_id in emdb_ids:
                 session_state.emd_id = emd_id
                 image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
-                link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
+                #link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
+                link = f'[EMD-{emd_id}](https://www.emdataresource.org/EMD-{emd_id})'
             else:
                 emd_id_bad = emd_id
                 emd_id = random.choice(emdb_ids)
                 st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
+        elif input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
+            url = input_txt
+            image = get_image(url, invert_contrast=0, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
+            if image is not None:
+                image = image[::-1, :]
+                link = f'[Image Link]({url})'
+            else:
+                st.warning(f"{url} is not a valid image link")
         elif len(input_txt):
             st.warning(f"{input_txt} is not a valid image link")
         if image is not None:
+            if link: st.markdown(link, unsafe_allow_html=True)
             image = normalize(image)
-            st.markdown(link, unsafe_allow_html=True)
-            fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, plot2d_s2=False, title="Original Image")
+            fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot2d_s2=False, show_color=show_color)
             st.bokeh_chart(fig2d, use_container_width=True)
 
             fig2ds = []
@@ -309,7 +322,7 @@ def main():
                     title = f"CTF Applied - {i+1}"
                 else:
                     title = f"CTF Applied"
-                fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, plot2d_s2=False, title=title)
+                fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot2d_s2=False, show_color=show_color)
                 fig2ds.append(fig2d)
             if len(fig2ds)>1:
                 from bokeh.models import CrosshairTool
@@ -322,7 +335,7 @@ def main():
             else:
                 st.bokeh_chart(fig2d, use_container_width=True)
 
-def generate_image_figure(image, dxy, ctf_type, plot2d_s2, title):
+def generate_image_figure(image, dxy, ctf_type, title, plot2d_s2=False, show_color=False):
     w, h = image.shape
     tools = 'box_zoom,crosshair,pan,reset,save,wheel_zoom'
     from bokeh.plotting import figure
@@ -363,10 +376,8 @@ def generate_image_figure(image, dxy, ctf_type, plot2d_s2, title):
             ("val", '@image')
         ]
 
-    from bokeh.models import LinearColorMapper
-    color_mapper = LinearColorMapper(palette='Greys256')    # Greys256, Viridis256
-    
-    fig2d_image = fig2d.image(source=source_data, image='image', color_mapper=color_mapper, x='x', y='y', dw='dw', dh='dh')
+    palette = "Spectral11" if show_color else "Greys256"    # "Viridis256"   
+    fig2d_image = fig2d.image(source=source_data, image='image', palette=palette, x='x', y='y', dw='dw', dh='dh')
     
     from bokeh.models.tools import HoverTool
     image_hover = HoverTool(renderers=[fig2d_image], tooltips=tooltips)
