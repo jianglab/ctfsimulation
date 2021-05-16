@@ -49,6 +49,14 @@ def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
 
+    hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
     if embed:
         col1, col2 = st.beta_columns((1, 5))
     else:
