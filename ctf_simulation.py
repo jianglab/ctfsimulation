@@ -185,6 +185,12 @@ def main():
         fig.x_range.end = source['x'][-1]
         fig.y_range.start = -1 if ctf_type == 'CTF' else 0
         fig.y_range.end = 1
+        from bokeh.models import CustomJS
+        from bokeh.events import MouseEnter
+        title_js = CustomJS(args=dict(title=title), code="""
+            document.title=title
+        """)
+        fig.js_on_event(MouseEnter, title_js)
         if len(legends)>1:
             from bokeh.models import Legend
             legend = Legend(items=legends, location="top_center", spacing=10, orientation="horizontal")
