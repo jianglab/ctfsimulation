@@ -49,14 +49,6 @@ def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
 
-    hide_streamlit_style = """
-    <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    </style>
-    """
-    st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
-
     if embed:
         col1, col2 = st.beta_columns((1, 5))
     else:
@@ -234,6 +226,14 @@ def main():
 
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
+        hide_streamlit_style = """
+        <style>
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        </style>
+        """
+        st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
     if embed: return
 
     with col3:
@@ -269,7 +269,7 @@ def main():
             if emdb_ids:
                 input_modes += ["Random EMDB ID", "Input an EMDB ID"]
             input_modes += ["Input an image url"]
-            input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=0)
+            input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=3)
             if input_mode == "Random EMDB ID":
                 st.button(label="Change EMDB ID")
                 import random
