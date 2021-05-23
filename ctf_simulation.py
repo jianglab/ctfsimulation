@@ -44,7 +44,7 @@ import numpy as np
 def main():
     session_state = SessionState_get(ctfs=[CTF()], emd_id=0)
     query_params = st.experimental_get_query_params()
-    embed = "embed" in query_params
+    embed = "embed" in query_params and query_params["embed"][0]!='0'
 
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
@@ -122,15 +122,18 @@ def main():
         value = ctfs[i].ampcontrast if n>1 else 7.0
         ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=value, min_value=0.0, max_value=100., step=10.0, format="%g")
 
-    with col2:
         if not embed:
-            plot1d_s2 = st.checkbox(label='plot s^2 as x-axis', value=False)
+            show_psf = st.checkbox('Show Point Spread Function', value=True)
+            plot_s2 = st.checkbox(label='plot s^2 as x-axis/radius', value=False)
         else:
-            plot1d_s2 = False
+            show_psf = False
+            plot_s2 = False
 
+
+    with col2:
         from bokeh.plotting import figure
         from bokeh.models import LegendItem
-        if plot1d_s2:
+        if plot_s2:
             x_label = "s^2 (1/Å^2)"
             hover_x_var = "s^2"
             hover_x_val = "$x 1/Å^2"
@@ -161,8 +164,8 @@ def main():
             else:
                 defocuses = [ctfs[i].defocus]
             for di, defocus in enumerate(defocuses):
-                s, s2, ctf = ctfs[i].ctf1d(apix, imagesize, over_sample, plot_abs, plot1d_s2, defocus_override=defocus)
-                x = s2 if plot1d_s2 else s
+                s, s2, ctf = ctfs[i].ctf1d(apix, imagesize, over_sample, plot_abs, plot_s2, defocus_override=defocus)
+                x = s2 if plot_s2 else s
                 source = dict(x=x, res=1/s, y=ctf)
                 if n>1 or (n==1 and ctfs[0].dfdiff): source["defocus"] = [defocus] * len(x)
                 line_dash = line_dashes[di] if len(defocuses)>1 else "solid"
@@ -173,9 +176,9 @@ def main():
                 raw_data.append((label, ctf))
 
             if n==1 and rotavg:
-                _, _, ctf_2d = ctfs[i].ctf2d(apix, imagesize, over_sample, plot_abs, plot1d_s2)
+                _, _, ctf_2d = ctfs[i].ctf2d(apix, imagesize, over_sample, plot_abs, plot_s2)
                 rad_profile = compute_radial_profile(ctf_2d)
-                source = dict(x=s2 if plot1d_s2 else s, res=1/s, y=rad_profile)
+                source = dict(x=s2 if plot_s2 else s, res=1/s, y=rad_profile)
                 line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=2)
                 label = "rotavg"
                 legends.append(LegendItem(label="rotavg", renderers=[line]))
@@ -210,7 +213,36 @@ def main():
         st.bokeh_chart(fig, use_container_width=True)
 
         if not embed:
-            show_data = st.checkbox('show raw data', value=False)
+            if show_psf:
+                tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
+                hover_tips = [("x", "$x Å"), (f"PSF", "$y")]
+                if n>1:
+                    hover_tips = [("Defocus", "@defocus µm")] + hover_tips
+                fig = figure(title="Point Spread Function", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
+                fig.title.align = "center"
+                fig.title.text_font_size = "18px"                
+                for i in range(n):
+                    x, psf = ctfs[i].psf1d(apix, imagesize, abs=plot_abs)
+                    source = dict(x=x, y=psf)
+                    if n>1: source["defocus"] = [ctfs[i].defocus] * len(x)
+                    line = fig.line(x='x', y='y', source=source, line_width=2, color=colors[i%len(colors)], legend_label=f"{round(ctfs[i].defocus, 4):g} µm")
+                if n>1:
+                    fig.legend.click_policy= "hide"
+                    from bokeh.models import CustomJS
+                    from bokeh.events import MouseMove, DoubleTap
+                    toggle_legend_js = CustomJS(args=dict(leg=fig.legend[0]), code="""
+                        if (leg.visible) {
+                            leg.visible = false
+                            }
+                        else {
+                            leg.visible = true
+                        }
+                    """)
+                    fig.js_on_event(DoubleTap, toggle_legend_js)
+                st.text("") # workaround for a layout bug in streamlit 
+                st.bokeh_chart(fig, use_container_width=True)
+
+            show_data = st.checkbox('Show CTF raw data', value=False)
             if show_data:
                 import pandas as pd
                 data = np.zeros((len(x), 2 + len(raw_data)))
@@ -243,20 +275,19 @@ def main():
     if embed: return
 
     with col3:
-        plot2d_s2 = st.checkbox(label='plot s^2 as radius', value=False)
         st.text("") # workaround for a layout bug in streamlit 
 
         show_color = False
 
         fig2ds = []
         for i in range(n):
-            ds, ds2, ctf_2d = ctfs[i].ctf2d(apix, imagesize, over_sample, plot_abs, plot2d_s2)
-            dxy = ds2 if plot2d_s2 else ds
+            ds, ds2, ctf_2d = ctfs[i].ctf2d(apix, imagesize, over_sample, plot_abs, plot_s2)
+            dxy = ds2 if plot_s2 else ds
             if n>1:
                 title = f"{ctf_type} - {i+1}"
             else:
                 title = f"{ctf_type}"
-            fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, title, plot2d_s2, show_color)
+            fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, title, plot_s2, show_color)
             fig2ds.append(fig2d)
         if len(fig2ds)>1:
             from bokeh.models import CrosshairTool
@@ -325,7 +356,7 @@ def main():
         if image is not None:
             if link: st.markdown(link, unsafe_allow_html=True)
             image = normalize(image)
-            fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot2d_s2=False, show_color=show_color)
+            fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
             st.bokeh_chart(fig2d, use_container_width=True)
 
             fig2ds = []
@@ -336,7 +367,7 @@ def main():
                     title = f"CTF Applied - {i+1}"
                 else:
                     title = f"CTF Applied"
-                fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot2d_s2=False, show_color=show_color)
+                fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                 fig2ds.append(fig2d)
             if len(fig2ds)>1:
                 from bokeh.models import CrosshairTool
@@ -349,7 +380,7 @@ def main():
             else:
                 st.bokeh_chart(fig2d, use_container_width=True)
 
-def generate_image_figure(image, dxy, ctf_type, title, plot2d_s2=False, show_color=False):
+def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color=False):
     w, h = image.shape
     tools = 'box_zoom,crosshair,pan,reset,save,wheel_zoom'
     from bokeh.plotting import figure
@@ -365,7 +396,7 @@ def generate_image_figure(image, dxy, ctf_type, title, plot2d_s2=False, show_col
         fig2d.title.text_font_size = "18px"
 
     if ctf_type is not None:
-        if plot2d_s2:
+        if plot_s2:
             source_data = dict(image=[image], x=[-w//2*dxy], y=[-h//2*dxy], dw=[w*dxy], dh=[h*dxy])
             tooltips = [
                 ("Res", "@res Å"),
@@ -424,7 +455,7 @@ def generate_image_figure(image, dxy, ctf_type, title, plot2d_s2=False, show_col
             hover.tooltips[2][1] = angle.toString() + " °"
         }
         """
-        mousemove_callback = CustomJS(args={"hover":fig2d.hover[0], "s2":plot2d_s2}, code=mousemove_callback_code)
+        mousemove_callback = CustomJS(args={"hover":fig2d.hover[0], "s2":plot_s2}, code=mousemove_callback_code)
         fig2d.js_on_event(MouseMove, mousemove_callback)
     
     return fig2d
@@ -451,14 +482,13 @@ class CTF:
         s_nyquist = 1./(2*apix)
         if plot_s2:
             ds2 = s_nyquist*s_nyquist/(imagesize//2*over_sample)
-            s2 = np.arange(imagesize//2*over_sample+1, dtype=np.float)*ds2
+            s2 = np.arange(imagesize//2*over_sample+1, dtype=np.float32)*ds2
             s = np.sqrt(s2)
         else:
             ds = s_nyquist/(imagesize//2*over_sample)
-            s = np.arange(imagesize//2*over_sample+1, dtype=np.float)*ds
+            s = np.arange(imagesize//2*over_sample+1, dtype=np.float32)*ds
             s2 = s*s
         wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
-        wl3 = np.power(wl, 3)
         phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
         gamma =2*np.pi*(-0.5*defocus_final*1e4*wl*s2 + .25*self.cs*1e7*wl**3*s2**2) - phaseshift
         
@@ -476,6 +506,37 @@ class CTF:
         elif abs==1: ctf = np.abs(ctf)
 
         return s, s2, ctf
+
+    @st.cache(persist=True, show_spinner=False)
+    def psf1d(self, apix, imagesize, abs, defocus_override=None):
+        defocus_final = defocus_override if defocus_override is not None else self.defocus
+        s_nyquist = 1./(2*apix)
+        ds = s_nyquist/(imagesize//2)
+        s = (np.arange(imagesize, dtype=np.float32) - imagesize//2)*ds
+        s2 = s*s
+        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
+        gamma =2*np.pi*(-0.5*defocus_final*1e4*wl*s2 + .25*self.cs*1e7*wl**3*s2**2) - phaseshift
+        
+        from scipy.special import j0, sinc
+        env = np.ones_like(gamma)
+        if self.bfactor: env *= np.exp(-self.bfactor*s2/4.0)
+        if self.alpha: env *= np.exp(-np.power(np.pi*self.alpha*(1.0e7*self.cs*wl*wl*s*s*s-1e4*defocus_final*s), 2.0)*1e-6)
+        if self.dE: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dE/self.voltage, 2.0)/(16*np.log(2))*1e8)
+        if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
+        if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
+        if self.dXY: env *= sinc(np.pi*self.dXY*s)
+
+        ctf = np.sin(gamma) * env
+        if abs>=1: ctf = np.abs(ctf)
+
+        unity = np.ones((imagesize,), dtype=np.complex64)
+        psf = np.abs( np.fft.ifft( unity * np.fft.ifftshift(ctf) ) )
+        psf = np.fft.fftshift(psf)
+        psf /= np.linalg.norm(psf, ord=2)
+        x = (np.arange(imagesize)-imagesize//2) * apix
+
+        return x, psf
 
     @st.cache(persist=True, show_spinner=False)
     def ctf2d(self, apix, imagesize, over_sample, abs, plot_s2=False):    
