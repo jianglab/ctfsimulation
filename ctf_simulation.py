@@ -218,7 +218,7 @@ def main():
                 hover_tips = [("x", "$x Å"), (f"PSF", "$y")]
                 if n>1:
                     hover_tips = [("Defocus", "@defocus µm")] + hover_tips
-                fig = figure(title="Point Spread Function", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
+                fig = figure(title=f"Point Spread Function of {ctf_type}", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
                 fig.title.align = "center"
                 fig.title.text_font_size = "18px"                
                 for i in range(n):
@@ -364,9 +364,9 @@ def main():
                 _, _, ctf_2d = ctfs[i].ctf2d(apix, imagesize, over_sample, abs=plot_abs, plot_s2=False)
                 image2 = np.abs(np.fft.ifft2(np.fft.fft2(image)*np.fft.fftshift(ctf_2d)))
                 if n>1:
-                    title = f"CTF Applied - {i+1}"
+                    title = f"{ctf_type} Applied - {i+1}"
                 else:
-                    title = f"CTF Applied"
+                    title = f"{ctf_type} Applied"
                 fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                 fig2ds.append(fig2d)
             if len(fig2ds)>1:
@@ -528,7 +528,8 @@ class CTF:
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
         ctf = np.sin(gamma) * env
-        if abs>=1: ctf = np.abs(ctf)
+        if abs>=2: ctf = ctf*ctf
+        elif abs==1: ctf = np.abs(ctf)
 
         unity = np.ones((imagesize,), dtype=np.complex64)
         psf = np.abs( np.fft.ifft( unity * np.fft.ifftshift(ctf) ) )
