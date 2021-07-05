@@ -69,7 +69,7 @@ def main():
             value = options.index(plot_settings.get("ctf_type", 'CTF'))
             ctf_type = st.selectbox(label='CTF type', options=options, index=value)
             plot_abs = options.index(ctf_type)
-            n = st.number_input('# of CTFs', value=len(ctfs), min_value=1, step=1)
+            n = int(st.number_input('# of CTFs', value=len(ctfs), min_value=1, step=1))
         if n>len(ctfs):
             ctfs += [ CTF() for i in range(n-len(ctfs)) ]
         if n>1:
@@ -500,7 +500,7 @@ def parse_query_parameters():
     if not ns:
         ctfs = None
     else:
-        n = max(ns)
+        n = int(max(ns))
         ctfs = [CTF() for i in range(n)]
         for attr in attrs:
             if attr in query_params:
