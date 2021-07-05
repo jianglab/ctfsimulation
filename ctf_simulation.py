@@ -111,9 +111,9 @@ def main():
             over_sample = 1
         else:
             value = int(plot_settings.get("imagesize", 256))
-            imagesize = st.number_input('image size (pixel)', value=value, min_value=32, max_value=4096, step=4)
+            imagesize = int(st.number_input('image size (pixel)', value=value, min_value=32, max_value=4096, step=4))
             value = int(plot_settings.get("over_sample", 1))
-            over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=value, min_value=1, max_value=6, step=1)
+            over_sample = int(st.slider('over-sample (1x, 2x, 3x, etc)', value=value, min_value=1, max_value=6, step=1))
         
             with st.beta_expander("envelope functions", expanded=False):
                 value = ctfs[i].bfactor if n>1 else 0.0
