@@ -234,9 +234,9 @@ def main():
                 fig.title.align = "center"
                 fig.title.text_font_size = "18px"                
                 for i in range(n):
-                    x, psf = ctfs[i].psf1d(apix, imagesize, abs=plot_abs)
-                    source = dict(x=x, y=psf)
-                    if n>1: source["defocus"] = [ctfs[i].defocus] * len(x)
+                    x_psf, psf = ctfs[i].psf1d(apix, imagesize, abs=plot_abs)
+                    source = dict(x=x_psf, y=psf)
+                    if n>1: source["defocus"] = [ctfs[i].defocus] * len(x_psf)
                     line = fig.line(x='x', y='y', source=source, line_width=2, color=colors[i%len(colors)], legend_label=f"{round(ctfs[i].defocus, 4):g} µm")
                 if n>1:
                     fig.legend.click_policy= "hide"
@@ -253,6 +253,12 @@ def main():
                     fig.js_on_event(DoubleTap, toggle_legend_js)
                 st.text("") # workaround for a layout bug in streamlit 
                 st.bokeh_chart(fig, use_container_width=True)
+
+            share_url = st.checkbox('Show sharable URL', help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
+            if share_url:
+                set_query_parameters(ctfs, ctf_type, apix, imagesize, over_sample, show_psf, plot_s2)
+            else:
+                st.experimental_set_query_params()
 
             show_data = st.checkbox('Show CTF raw data', value=False)
             if show_data:
@@ -470,6 +476,21 @@ def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color
         fig2d.js_on_event(MouseMove, mousemove_callback)
     
     return fig2d
+
+def set_query_parameters(ctfs, ctf_type, apix, imagesize, over_sample, show_psf, plot_s2):
+    d = {}
+    if ctf_type != "CTF": d["ctf_type"] = ctf_type
+    if apix != 1.0: d["apix"] = apix
+    if imagesize != 256: d["imagesize"] = imagesize
+    if over_sample !=1: d["over_sample"] = over_sample
+    if not show_psf: d["over_sample"] = 0
+    if plot_s2: d["plot_s2"] = 1
+    default_vals = {"voltage":300, "cs":2.7, "ampcontrast":7.0, "defocus":0.5, "dfdiff":0, "dfang":0, "phaseshift":0, "bfactor":0, "alpha":0, "cc":2.7, "dE":0, "dI":0, "dZ":0, "dXY":0}
+    for attr in default_vals.keys():
+        vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
+        if np.any(vals - default_vals[attr]):
+            d[attr] = vals
+    st.experimental_set_query_params(**d)
 
 def parse_query_parameters():
     query_params = st.experimental_get_query_params()
