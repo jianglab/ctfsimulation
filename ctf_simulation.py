@@ -73,7 +73,7 @@ def main():
         if n>len(ctfs):
             ctfs += [ CTF() for i in range(n-len(ctfs)) ]
         if n>1:
-            i = st.number_input('CTF i=?', value=1, min_value=1, max_value=n, step=1)
+            i = int(st.number_input('CTF i=?', value=1, min_value=1, max_value=n, step=1))
             i -= 1
         else:
             i = 0
