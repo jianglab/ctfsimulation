@@ -42,9 +42,11 @@ import streamlit as st
 import numpy as np
 
 def main():
-    session_state = SessionState_get(ctfs=[CTF()], emd_id=0)
-    query_params = st.experimental_get_query_params()
-    embed = "embed" in query_params and query_params["embed"][0]!='0'
+    ctfs, plot_settings, embed = parse_query_parameters()
+
+    session_state = st.session_state
+    if ctfs is not None: session_state.ctfs = ctfs
+    if "ctfs" not in session_state: session_state.ctfs = [CTF()]
 
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
@@ -64,9 +66,10 @@ def main():
             n = 1
         else:
             options = ('CTF', '|CTF|', 'CTF^2')
-            ctf_type = st.selectbox(label='CTF type', options=options)
+            value = options.index(plot_settings.get("ctf_type", 'CTF'))
+            ctf_type = st.selectbox(label='CTF type', options=options, index=value)
             plot_abs = options.index(ctf_type)
-            n = st.number_input('# of CTFs', value=1, min_value=1, step=1)
+            n = st.number_input('# of CTFs', value=len(ctfs), min_value=1, step=1)
         if n>len(ctfs):
             ctfs += [ CTF() for i in range(n-len(ctfs)) ]
         if n>1:
@@ -74,11 +77,22 @@ def main():
             i -= 1
         else:
             i = 0
-        value = ctfs[i].defocus if n>1 else 0.5
-        ctfs[i].defocus = st.number_input('defocus (µm)', value=value, min_value=0.0, step=0.1, format="%.5g", key=f"defocus-{i}")
         if embed:
+            ctfs[i].defocus = st.number_input('defocus (µm)', value=ctfs[i].defocus, min_value=0.0, step=0.1, format="%.5g")
             rotavg = False
         else:
+            key_defocus_number_input = f"defocus-{i}_number_input"
+            key_defocus_slider = f"defocus-{i}_slider"
+            if key_defocus_number_input not in session_state: session_state[key_defocus_number_input] = ctfs[i].defocus if n>1 else 0.5
+            if key_defocus_slider not in session_state: session_state[key_defocus_slider] = session_state[key_defocus_number_input]
+            def update_defocus_number_input():
+                st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
+            def update_defocus_slider():
+                st.session_state[key_defocus_slider] = st.session_state[key_defocus_number_input]
+            st.number_input('defocus (µm)', value=session_state[key_defocus_number_input], min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=update_defocus_slider)
+            st.slider('', value=session_state[key_defocus_slider], min_value=0.0, max_value=max(0.1, session_state[key_defocus_slider]*2.0), step=max(1e-4, session_state[key_defocus_slider]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=update_defocus_number_input)
+            ctfs[i].defocus = session_state[key_defocus_slider]
+
             value = ctfs[i].dfdiff if n>1 else 0.0
             ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=value, min_value=0.0, step=0.01, format="%g")
             if n==1 and ctfs[i].dfdiff:
@@ -90,13 +104,16 @@ def main():
             ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
         value = ctfs[i].phaseshift if n>1 else 0.0
         ctfs[i].phaseshift = st.number_input('phase shift (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
-        apix = st.number_input('pixel size (Å/pixel)', value=1.0, min_value=0.1, step=0.01, format="%g")
+        value = float(plot_settings.get("apix", 1.0))
+        apix = st.number_input('pixel size (Å/pixel)', value=value, min_value=0.1, step=0.01, format="%g")
         if embed:
-            imagesize = 2048
+            imagesize = int(plot_settings.get("imagesize", 2048))
             over_sample = 1
         else:
-            imagesize = st.number_input('image size (pixel)', value=256, min_value=32, max_value=4096, step=4)
-            over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=1, min_value=1, max_value=6, step=1)
+            value = int(plot_settings.get("imagesize", 256))
+            imagesize = st.number_input('image size (pixel)', value=value, min_value=32, max_value=4096, step=4)
+            value = int(plot_settings.get("over_sample", 1))
+            over_sample = st.slider('over-sample (1x, 2x, 3x, etc)', value=value, min_value=1, max_value=6, step=1)
         
             with st.beta_expander("envelope functions", expanded=False):
                 value = ctfs[i].bfactor if n>1 else 0.0
@@ -123,12 +140,13 @@ def main():
         ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=value, min_value=0.0, max_value=100., step=10.0, format="%g")
 
         if not embed:
-            show_psf = st.checkbox('Show Point Spread Function', value=True)
-            plot_s2 = st.checkbox(label='plot s^2 as x-axis/radius', value=False)
+            value = int(plot_settings.get("show_psf", 1))
+            show_psf = st.checkbox('show point spread function', value=value)
+            value = int(plot_settings.get("plot_s2", 0))
+            plot_s2 = st.checkbox(label='plot s^2 as x-axis/radius', value=value)
         else:
             show_psf = False
             plot_s2 = False
-
 
     with col2:
         from bokeh.plotting import figure
@@ -188,12 +206,6 @@ def main():
         fig.x_range.end = source['x'][-1]
         fig.y_range.start = -1 if ctf_type == 'CTF' else 0
         fig.y_range.end = 1
-        from bokeh.models import CustomJS
-        from bokeh.events import MouseEnter
-        title_js = CustomJS(args=dict(title=title), code="""
-            document.title=title
-        """)
-        fig.js_on_event(MouseEnter, title_js)
         if len(legends)>1:
             from bokeh.models import Legend
             legend = Legend(items=legends, location="top_center", spacing=10, orientation="horizontal")
@@ -303,24 +315,24 @@ def main():
         with st.beta_expander("Simulate the CTF effect"):
             input_modes = ["Delta Function"]
             emdb_ids = get_emdb_ids()
-            if emdb_ids:
-                input_modes += ["Random EMDB ID", "Input an EMDB ID"]
+            input_modes += ["Random EMDB ID", "Input an EMDB ID"]
+            if "emd_id" not in session_state:
+                import random
+                session_state.emd_id = random.choice(emdb_ids)
             input_modes += ["Input an image url"]
             input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=3)
             if input_mode == "Random EMDB ID":
-                st.button(label="Change EMDB ID")
-                import random
-                emd_id = random.choice(emdb_ids)
-                input_txt = f"EMD-{emd_id}"
-            elif input_mode == "Input an EMDB ID":
-                if session_state.emd_id==0:
+                button_clicked = st.button(label="Change EMDB ID")
+                if button_clicked:
                     import random
-                    emd_id = random.choice(emdb_ids)
-                else:
-                    emd_id = session_state.emd_id        
+                    session_state.emd_id = random.choice(emdb_ids)
+                input_txt = f"EMD-{session_state.emd_id}"
+            elif input_mode == "Input an EMDB ID":
+                emd_id = session_state.emd_id        
                 label = "Input an EMDB ID"
                 value = f"EMD-{emd_id}"
                 input_txt = st.text_input(label=label, value=value).strip()
+                session_state.emd_id = input_txt.lower().split("emd_")[-1]
             elif input_mode == "Input an image url":
                 label = "Input an image url:"
                 value = "https://images-na.ssl-images-amazon.com/images/I/61pSCxXEP8L._AC_SL1000_.jpg"
@@ -337,7 +349,6 @@ def main():
             if emd_id in emdb_ids:
                 session_state.emd_id = emd_id
                 image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(imagesize*over_sample, imagesize*over_sample))
-                #link = f'[EMD-{emd_id}](https://www.ebi.ac.uk/pdbe/entry/emdb/EMD-{emd_id})'
                 link = f'[EMD-{emd_id}](https://www.emdataresource.org/EMD-{emd_id})'
             else:
                 emd_id_bad = emd_id
@@ -459,8 +470,33 @@ def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color
         fig2d.js_on_event(MouseMove, mousemove_callback)
     
     return fig2d
+
+def parse_query_parameters():
+    query_params = st.experimental_get_query_params()
+    embed = "embed" in query_params and query_params["embed"][0]!='0'
+    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY".split()
+    ns = [len(query_params[attr]) for attr in attrs if attr in query_params]
+    if not ns:
+        ctfs = None
+    else:
+        n = max(ns)
+        ctfs = [CTF() for i in range(n)]
+        for attr in attrs:
+            if attr in query_params:
+                for i in range(n):
+                    setattr(ctfs[i], attr, float(query_params[attr][-1]))
+                for i in range(len(query_params[attr])):
+                    setattr(ctfs[i], attr, float(query_params[attr][i]))
+
+    attrs = "ctf_type apix imagesize over_sample show_psf plot_s2".split()
+    plot_settings = {}
+    for attr in attrs:
+        if attr in query_params:
+            plot_settings[attr] = query_params[attr][0]
+    return ctfs, plot_settings, embed
+
 class CTF:
-    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=10.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0):
+    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0):
         self.voltage = voltage
         self.cs = cs
         self.ampcontrast = ampcontrast
@@ -618,14 +654,14 @@ def get_emdb_ids():
         emdb_ids = pd.read_csv("https://wwwdev.ebi.ac.uk/emdb/api/search/*%20AND%20current_status:%22REL%22?wt=csv&download=true&fl=emdb_id")
         emdb_ids = list(emdb_ids.iloc[:,0].str.split('-', expand=True).iloc[:, 1].values)
     except:
-        emdb_ids = []
+        emdb_ids = ["11638"]
     return emdb_ids
 
 @st.cache(persist=True, show_spinner=False)
 def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     emdb_ids = get_emdb_ids()
     if emd_id in emdb_ids:
-        url = f"https://www.ebi.ac.uk/pdbe/static/entry/EMD-{emd_id}/400_{emd_id}.gif"
+        url = f"https://www.ebi.ac.uk/emdb/images/entry/EMD-{emd_id}/400_{emd_id}.gif"
         return get_image(url, invert_contrast, rgb2gray, output_shape)
     else:
         return None
@@ -673,103 +709,6 @@ def setup_anonymous_usage_tracking():
             index_file.write_text(txt)
     except:
         pass
-
-# adapted from https://gist.github.com/tvst/036da038ab3e999a64497f42de966a92
-try:
-    import streamlit.ReportThread as ReportThread
-    from streamlit.server.Server import Server
-except Exception:
-    # Streamlit >= 0.65.0
-    import streamlit.report_thread as ReportThread
-    from streamlit.server.server import Server
-
-class SessionState(object):
-    def __init__(self, **kwargs):
-        """A new SessionState object.
-
-        Parameters
-        ----------
-        **kwargs : any
-            Default values for the session state.
-
-        Example
-        -------
-        >>> session_state = SessionState(user_name='', favorite_color='black')
-        >>> session_state.user_name = 'Mary'
-        ''
-        >>> session_state.favorite_color
-        'black'
-
-        """
-        for key, val in kwargs.items():
-            setattr(self, key, val)
-
-
-def SessionState_get(**kwargs):
-    """Gets a SessionState object for the current session.
-
-    Creates a new object if necessary.
-
-    Parameters
-    ----------
-    **kwargs : any
-        Default values you want to add to the session state, if we're creating a
-        new one.
-
-    Example
-    -------
-    >>> session_state = get(user_name='', favorite_color='black')
-    >>> session_state.user_name
-    ''
-    >>> session_state.user_name = 'Mary'
-    >>> session_state.favorite_color
-    'black'
-
-    Since you set user_name above, next time your script runs this will be the
-    result:
-    >>> session_state = get(user_name='', favorite_color='black')
-    >>> session_state.user_name
-    'Mary'
-
-    """
-    # Hack to get the session object from Streamlit.
-
-    ctx = ReportThread.get_report_ctx()
-
-    this_session = None
-
-    current_server = Server.get_current()
-    if hasattr(current_server, '_session_infos'):
-        # Streamlit < 0.56
-        session_infos = Server.get_current()._session_infos.values()
-    else:
-        session_infos = Server.get_current()._session_info_by_id.values()
-
-    for session_info in session_infos:
-        s = session_info.session
-        if (
-            # Streamlit < 0.54.0
-            (hasattr(s, '_main_dg') and s._main_dg == ctx.main_dg)
-            or
-            # Streamlit >= 0.54.0
-            (not hasattr(s, '_main_dg') and s.enqueue == ctx.enqueue)
-            or
-            # Streamlit >= 0.65.2
-            (not hasattr(s, '_main_dg') and s._uploaded_file_mgr == ctx.uploaded_file_mgr)
-        ):
-            this_session = s
-
-    if this_session is None:
-        raise RuntimeError(
-            "Oh noes. Couldn't get your Streamlit Session object. "
-            'Are you doing something fancy with threads?')
-
-    # Got the session object! Now let's attach some state into it.
-
-    if not hasattr(this_session, '_custom_session_state'):
-        this_session._custom_session_state = SessionState(**kwargs)
-
-    return this_session._custom_session_state
 
 if __name__ == "__main__":
     setup_anonymous_usage_tracking()
