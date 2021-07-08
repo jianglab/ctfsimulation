@@ -53,6 +53,7 @@ def main():
 
     if embed:
         col1, col2 = st.beta_columns((1, 5))
+        col_info = col2
     else:
         st.title(title)
         col1 = st.sidebar
@@ -82,8 +83,10 @@ def main():
         else:
             key_defocus_number_input = f"defocus-{i}_number_input"
             key_defocus_slider = f"defocus-{i}_slider"
-            if key_defocus_number_input not in session_state: session_state[key_defocus_number_input] = ctfs[i].defocus if n>1 else 0.5
-            if key_defocus_slider not in session_state: session_state[key_defocus_slider] = session_state[key_defocus_number_input]
+            if key_defocus_number_input not in session_state:
+                session_state[key_defocus_number_input] = ctfs[i].defocus
+            if key_defocus_slider not in session_state:
+                session_state[key_defocus_slider] = session_state[key_defocus_number_input]
             def update_defocus_number_input():
                 st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
             def update_defocus_slider():
@@ -427,17 +430,18 @@ def main():
                     st.bokeh_chart(fig2d, use_container_width=True)
 
     with col_info:
-        st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
+        if not embed:
+            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
 
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
-        hide_streamlit_style = """
-        <style>
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        </style>
-        """
-        st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+    hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
 
 def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color=False):
     w, h = image.shape
