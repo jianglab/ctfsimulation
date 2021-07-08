@@ -237,7 +237,10 @@ def main():
                         label = label0
                     legends.append(LegendItem(label=label, renderers=[line]))
                     if show_data:
-                        label = f"{y_label} ({label})"
+                        if len(ctfs)>1 or len(defocuses)>1:
+                            label = f"{y_label} ({label})"
+                        else:
+                            label = f"{y_label}"
                         raw_data.append((label, s, x, ctf))
 
                 if n==1 and rotavg:
