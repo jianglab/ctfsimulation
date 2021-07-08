@@ -109,7 +109,7 @@ def main():
         value = float(plot_settings.get("apix", 1.0))
         apix = st.number_input('pixel size (Å/pixel)', value=value, min_value=0.1, step=0.01, format="%g")
         if embed:
-            ctfs[i].imagesize = int(plot_settings.get("imagesize", 2048))
+            ctfs[i].imagesize = int(plot_settings.get("imagesize", 1024))
             ctfs[i].over_sample = 1
         else:
             value = int(ctfs[i].imagesize)
@@ -147,6 +147,7 @@ def main():
             show_psf = False
             show_marker = False
             plot_s2 = False
+            show_data = False
             share_url = False
         else:
             value = int(plot_settings.get("show_1d", 1))
@@ -235,8 +236,9 @@ def main():
                     else:
                         label = label0
                     legends.append(LegendItem(label=label, renderers=[line]))
-                    label = f"{y_label} ({label})"
-                    raw_data.append((label, s, x, ctf))
+                    if show_data:
+                        label = f"{y_label} ({label})"
+                        raw_data.append((label, s, x, ctf))
 
                 if n==1 and rotavg:
                     _, _, ctf_2d = ctfs[i].ctf2d(apix, plot_abs, plot_s2)
@@ -246,8 +248,9 @@ def main():
                     line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=2)
                     label = f"defocus={ctfs[i].defocus}/dfdiff={ctfs[i].dfdiff}-rotavg"
                     legends.append(LegendItem(label=label, renderers=[line]))
-                    label = f"{y_label} ({label})"
-                    raw_data.append((label, s, x, rad_profile))
+                    if show_data:
+                        label = f"{y_label} ({label})"
+                        raw_data.append((label, s, x, rad_profile))
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
