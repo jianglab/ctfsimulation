@@ -601,6 +601,7 @@ def parse_query_parameters():
     for attr in attrs:
         if attr in query_params:
             plot_settings[attr] = query_params[attr][0]
+    print(query_params, ctfs, plot_settings, embed)
     return ctfs, plot_settings, embed
 
 def ctf_varying_parameter_labels(ctfs):
