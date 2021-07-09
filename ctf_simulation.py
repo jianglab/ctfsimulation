@@ -42,14 +42,25 @@ import streamlit as st
 import numpy as np
 
 def main():
-    ctfs, plot_settings, embed = parse_query_parameters()
-
-    session_state = st.session_state
-    if ctfs is not None: session_state.ctfs = ctfs
-    if "ctfs" not in session_state: session_state.ctfs = [CTF()]
-
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
+
+    session_state = st.session_state
+    magic = "MAGIC_12345"
+    if magic not in session_state:  # only run once at the start of the session
+        st.session_state[magic] = True
+        st._shown_default_value_warning = True
+        ctfs, plot_settings, embed = parse_query_parameters()
+        session_state.plot_settings = plot_settings
+        session_state.embed = embed
+        if ctfs is not None: session_state.ctfs = ctfs
+        if "ctfs" not in session_state:
+            session_state.ctfs = [CTF()]
+        session_state.n0 = len(session_state.ctfs)
+        update_session_state_from_ctfs()
+    plot_settings = session_state.plot_settings
+    embed = session_state.embed
+    ctfs = session_state.ctfs
 
     if embed:
         col1, col2 = st.beta_columns((1, 5))
@@ -58,8 +69,7 @@ def main():
         st.title(title)
         col1 = st.sidebar
 
-    with col1:    # sidebar at the left of the screen
-        ctfs = session_state.ctfs
+    with col1:
         if embed:
             ctf_type = 'CTF'
             plot_abs = 0
@@ -69,77 +79,80 @@ def main():
             value = options.index(plot_settings.get("ctf_type", 'CTF'))
             ctf_type = st.selectbox(label='CTF type', options=options, index=value)
             plot_abs = options.index(ctf_type)
-            n = int(st.number_input('# of CTFs', value=len(ctfs), min_value=1, step=1))
+            n = int(st.number_input('# of CTFs', value=session_state.n0, min_value=1, step=1))
         if n>len(ctfs):
             ctfs += [ CTF() for i in range(n-len(ctfs)) ]
+            default_ctf_vals = CTF().get_dict()
+            for i in range(n):
+                for attr in default_ctf_vals.keys():
+                    attr_i = f"{attr}_{i}"
+                    if attr_i not in session_state:
+                        session_state[attr_i] = default_ctf_vals[attr]
+        elif n<len(ctfs):
+            session_state.ctfs = ctfs[:n]
+            ctfs = session_state.ctfs
+            default_ctf_vals = CTF().get_dict()
+            for i in range(n, len(ctfs)):
+                for attr in default_ctf_vals.keys():
+                    attr_i = f"{attr}_{i}"
+                    if attr_i in session_state:
+                        del session_state[attr_i]
+        
+        update_ctfs_from_session_state()
+        assert(n == len(ctfs))
         if n>1:
             i = int(st.number_input('CTF i=?', value=1, min_value=1, max_value=n, step=1))
             i -= 1
         else:
             i = 0
         if embed:
-            ctfs[i].defocus = st.number_input('defocus (µm)', value=ctfs[i].defocus, min_value=0.0, step=0.1, format="%.5g")
+            ctfs[i].defocus = st.number_input('defocus (µm)', value=ctfs[i].defocus, min_value=0.0, step=0.1, format="%.5g", key=f"defocus_{i}")
             rotavg = False
         else:
-            key_defocus_number_input = f"defocus-{i}_number_input"
-            key_defocus_slider = f"defocus-{i}_slider"
-            if key_defocus_number_input not in session_state:
-                session_state[key_defocus_number_input] = ctfs[i].defocus
-            if key_defocus_slider not in session_state:
-                session_state[key_defocus_slider] = session_state[key_defocus_number_input]
+            key_defocus = f"defocus_{i}"
+            key_defocus_number_input = f"defocus_{i}_number_input"
+            key_defocus_slider = f"defocus_{i}_slider"
+            session_state[key_defocus] = ctfs[i].defocus
+            session_state[key_defocus_number_input] = ctfs[i].defocus
+            session_state[key_defocus_slider] = ctfs[i].defocus
             def update_defocus_number_input():
                 st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
+                st.session_state[key_defocus] = st.session_state[key_defocus_slider]
             def update_defocus_slider():
                 st.session_state[key_defocus_slider] = st.session_state[key_defocus_number_input]
-            st.number_input('defocus (µm)', value=session_state[key_defocus_number_input], min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=update_defocus_slider)
-            st.slider('', value=session_state[key_defocus_slider], min_value=0.0, max_value=max(0.1, session_state[key_defocus_slider]*2.0), step=max(1e-4, session_state[key_defocus_slider]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=update_defocus_number_input)
-            ctfs[i].defocus = session_state[key_defocus_slider]
-
-            value = ctfs[i].dfdiff if n>1 else 0.0
-            ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=value, min_value=0.0, step=0.01, format="%g")
+                st.session_state[key_defocus] = st.session_state[key_defocus_number_input]
+            ctfs[i].defocus = st.number_input('defocus (µm)', min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=update_defocus_slider)
+            ctfs[i].defocus = st.slider('', min_value=0.0, max_value=max(0.1, session_state[key_defocus_slider]*2.0), step=max(1e-4, session_state[key_defocus_slider]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=update_defocus_number_input)
+            ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=ctfs[i].dfdiff, min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
             if n==1 and ctfs[i].dfdiff:
                 value = ctf_type=='CTF^2'
                 rotavg = st.checkbox(label='plot rotational average', value=value)
             else:
                 rotavg = False
-            value = ctfs[i].dfang if n>1 else 0.0
-            ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
-        value = ctfs[i].phaseshift if n>1 else 0.0
-        ctfs[i].phaseshift = st.number_input('phase shift (°)', value=value, min_value=0.0, max_value=360., step=1.0, format="%g")
+            ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=ctfs[i].dfang, min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
+        ctfs[i].phaseshift = st.number_input('phase shift (°)', value=ctfs[i].phaseshift, min_value=0.0, max_value=360., step=1.0, format="%g", key=f"phaseshift_{i}")
         value = float(plot_settings.get("apix", 1.0))
         apix = st.number_input('pixel size (Å/pixel)', value=value, min_value=0.1, step=0.01, format="%g")
         if embed:
             ctfs[i].imagesize = int(plot_settings.get("imagesize", 1024))
             ctfs[i].over_sample = 1
         else:
-            value = int(ctfs[i].imagesize)
-            ctfs[i].imagesize = int(st.number_input('image size (pixel)', value=value, min_value=32, max_value=4096, step=4))
-            value = int(ctfs[i].over_sample)
-            ctfs[i].over_sample = int(st.slider('over-sample (1x, 2x, 3x, etc)', value=value, min_value=1, max_value=6, step=1))
+            ctfs[i].imagesize = int(st.number_input('image size (pixel)', value=ctfs[i].imagesize, min_value=16, max_value=4096, step=4, key=f"imagesize_{i}"))
+            ctfs[i].over_sample = int(st.slider('over-sample (1x, 2x, 3x, etc)', value=ctfs[i].over_sample, min_value=1, max_value=6, step=1, key=f"over_sample_{i}"))
         
             with st.beta_expander("envelope functions", expanded=False):
-                value = ctfs[i].bfactor if n>1 else 0.0
-                ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=value, min_value=0.0, step=10.0, format="%g")
-                value = ctfs[i].alpha if n>1 else 0.0
-                ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=value, min_value=0.0, step=0.05, format="%g")
-                value = ctfs[i].dE if n>1 else 0.0
-                ctfs[i].dE = st.number_input('energy spread (eV)', value=value, min_value=0.0, step=0.2, format="%g")
-                value = ctfs[i].dI if n>1 else 0.0
-                ctfs[i].dI = st.number_input('objective lens current spread (ppm)', value=value, min_value=0.0, step=0.2, format="%g")
+                ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=ctfs[i].bfactor, min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}")
+                ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=ctfs[i].alpha, min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
+                ctfs[i].dE = st.number_input('energy spread (eV)', value=ctfs[i].dE, min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
+                ctfs[i].dI = st.number_input('objective lens current spread (ppm)', value=ctfs[i].dI, min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
                 if ctfs[i].dE or ctfs[i].dI:
-                    value = ctfs[i].cc if n>1 else 2.7
-                    ctfs[i].cc = st.number_input('cc (mm)', value=value, min_value=0.0, step=0.1, format="%g")
-                value = ctfs[i].dZ if n>1 else 0.0
-                ctfs[i].dZ = st.number_input('sample vertical motion (Å)', value=value, min_value=0.0, step=20.0, format="%g")
-                value = ctfs[i].dXY if n>1 else 0.0
-                ctfs[i].dXY = st.number_input('sample horizontal motion (Å)', value=value, min_value=0.0, step=0.2, format="%g")
+                    ctfs[i].cc = st.number_input('cc (mm)', value=ctfs[i].dE, min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
+                ctfs[i].dZ = st.number_input('sample vertical motion (Å)', value=ctfs[i].dZ, min_value=0.0, step=20.0, format="%g", key=f"dZ_{i}")
+                ctfs[i].dXY = st.number_input('sample horizontal motion (Å)', value=ctfs[i].dXY, min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
 
-        value = ctfs[i].voltage if n>1 else 300.0
-        ctfs[i].voltage = st.number_input('voltage (kV)', value=value, min_value=10., step=100., format="%g")
-        value = ctfs[i].cs if n>1 else 2.7
-        ctfs[i].cs = st.number_input('cs (mm)', value=value, min_value=0.0, step=0.1, format="%g")
-        value = ctfs[i].ampcontrast if n>1 else 7.0
-        ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=value, min_value=0.0, max_value=100., step=10.0, format="%g")
+        ctfs[i].voltage = st.number_input('voltage (kV)', value=ctfs[i].voltage, min_value=10., step=100., format="%g", key=f"voltage_{i}")
+        ctfs[i].cs = st.number_input('cs (mm)', value=ctfs[i].cs, min_value=0.0, step=0.1, format="%g", key=f"cs_{i}")
+        ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=ctfs[i].ampcontrast, min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
 
         if embed:
             show_1d = True
@@ -224,7 +237,8 @@ def main():
                 for di, defocus in enumerate(defocuses):
                     s, s2, ctf = ctfs[i].ctf1d(apix, plot_abs, plot_s2, defocus_override=defocus)
                     x = s2 if plot_s2 else s
-                    source = dict(x=x, res=1/s, y=ctf)
+                    res = np.hstack(([1e6],  1/s[1:]))
+                    source = dict(x=x, res=res, y=ctf)
                     if n>1 or (n==1 and ctfs[0].dfdiff): source["defocus"] = [defocus] * len(x)
                     line_dash = line_dashes[di] if len(defocuses)>1 else "solid"
                     line_width = 2 if len(defocuses)==1 or di==1 else 1
@@ -529,16 +543,33 @@ def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color
     
     return fig2d
 
+def update_session_state_from_ctfs():
+    for ci, ctf in enumerate(st.session_state.ctfs):
+        d = ctf.get_dict()
+        for attr in d.keys():
+            attr_i = f"{attr}_{ci}"
+            st.session_state[attr_i] = d[attr]
+
+def update_ctfs_from_session_state():
+    for ci, ctf in enumerate(st.session_state.ctfs):
+        d = ctf.get_dict()
+        for attr in d.keys():
+            attr_i = f"{attr}_{ci}"
+            if attr_i in st.session_state:
+                setattr(ctf, attr, st.session_state[attr_i])
+        ctf.imagesize = int(ctf.imagesize)
+        ctf.over_sample = int(ctf.over_sample)
+
 def set_query_parameters(ctfs, ctf_type, apix, show_1d, show_2d, show_psf, plot_s2, show_marker):
     d = {}
     if ctf_type != "CTF": d["ctf_type"] = ctf_type
     if apix != 1.0: d["apix"] = apix
     if not show_1d: d["show_1d"] = 0
     if not show_2d: d["show_2d"] = 0
-    if not show_psf: d["over_sample"] = 0
+    if not show_psf: d["show_psf"] = 0
     if plot_s2: d["plot_s2"] = 1
     if show_marker: d["show_marker"] = 1
-    default_vals = {"voltage":300, "cs":2.7, "ampcontrast":7.0, "defocus":0.5, "dfdiff":0, "dfang":0, "phaseshift":0, "bfactor":0, "alpha":0, "cc":2.7, "dE":0, "dI":0, "dZ":0, "dXY":0, "imagesize":256, "over_sample":1}
+    default_vals = CTF().get_dict()
     for attr in default_vals.keys():
         vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
         if np.any(vals - default_vals[attr]):
@@ -548,7 +579,7 @@ def set_query_parameters(ctfs, ctf_type, apix, show_1d, show_2d, show_psf, plot_
 def parse_query_parameters():
     query_params = st.experimental_get_query_params()
     embed = "embed" in query_params and query_params["embed"][0]!='0'
-    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY imagesize over_sample".split()
+    attrs = CTF().get_dict().keys()
     ns = [len(query_params[attr]) for attr in attrs if attr in query_params]
     if not ns:
         ctfs = None
@@ -612,6 +643,17 @@ class CTF:
         self.dXY = dXY
         self.imagesize = int(imagesize)
         self.over_sample = int(over_sample)
+    
+    def __str__(self):
+        return str(self.get_dict())
+
+    def __repr__(self):
+        return self.__str__()
+    
+    def get_dict(self):
+        ret = {}
+        ret.update(self.__dict__)
+        return ret
 
     @st.cache(persist=True, show_spinner=False)
     def ctf1d(self, apix, abs, plot_s2=False, defocus_override=None):
@@ -810,6 +852,12 @@ def setup_anonymous_usage_tracking():
             index_file.write_text(txt)
     except:
         pass
+
+def print_memory_usage():
+    from inspect import currentframe
+    import psutil, os
+    cf = currentframe()
+    print(f'Line {cf.f_back.f_lineno}: {psutil.Process(os.getpid()).memory_info().rss / 1024 ** 2} MB')
 
 if __name__ == "__main__":
     setup_anonymous_usage_tracking()
