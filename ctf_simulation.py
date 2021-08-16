@@ -49,7 +49,7 @@ def main():
     magic = "MAGIC_12345"
     if magic not in session_state:  # only run once at the start of the session
         st.session_state[magic] = True
-        st._shown_default_value_warning = True
+        st.elements.utils._shown_default_value_warning = True
         ctfs, plot_settings, embed = parse_query_parameters()
         session_state.plot_settings = plot_settings
         session_state.embed = embed
@@ -63,7 +63,7 @@ def main():
     ctfs = session_state.ctfs
 
     if embed:
-        col1, col2 = st.beta_columns((1, 5))
+        col1, col2 = st.columns((1, 5))
         col_info = col2
     else:
         st.title(title)
@@ -112,17 +112,16 @@ def main():
             key_defocus = f"defocus_{i}"
             key_defocus_number_input = f"defocus_{i}_number_input"
             key_defocus_slider = f"defocus_{i}_slider"
-            session_state[key_defocus] = ctfs[i].defocus
             session_state[key_defocus_number_input] = ctfs[i].defocus
             session_state[key_defocus_slider] = ctfs[i].defocus
-            def update_defocus_number_input():
-                st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
-                st.session_state[key_defocus] = st.session_state[key_defocus_slider]
-            def update_defocus_slider():
+            def defocus_number_input_2_slider():
                 st.session_state[key_defocus_slider] = st.session_state[key_defocus_number_input]
                 st.session_state[key_defocus] = st.session_state[key_defocus_number_input]
-            ctfs[i].defocus = st.number_input('defocus (µm)', min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=update_defocus_slider)
-            ctfs[i].defocus = st.slider('', min_value=0.0, max_value=max(0.1, session_state[key_defocus_slider]*2.0), step=max(1e-4, session_state[key_defocus_slider]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=update_defocus_number_input)
+            def defocus_slider_2_number_input():
+                st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
+                st.session_state[key_defocus] = st.session_state[key_defocus_slider]
+            ctfs[i].defocus = st.number_input('defocus (µm)', min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=defocus_number_input_2_slider)
+            ctfs[i].defocus = st.slider('', min_value=0.0, max_value=max(0.1, session_state[key_defocus_number_input]*2.0), step=max(1e-4, session_state[key_defocus_number_input]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=defocus_slider_2_number_input)
             ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=ctfs[i].dfdiff, min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
             if n==1 and ctfs[i].dfdiff:
                 value = ctf_type=='CTF^2'
@@ -140,7 +139,7 @@ def main():
             ctfs[i].imagesize = int(st.number_input('image size (pixel)', value=ctfs[i].imagesize, min_value=16, max_value=4096, step=4, key=f"imagesize_{i}"))
             ctfs[i].over_sample = int(st.slider('over-sample (1x, 2x, 3x, etc)', value=ctfs[i].over_sample, min_value=1, max_value=6, step=1, key=f"over_sample_{i}"))
         
-            with st.beta_expander("envelope functions", expanded=False):
+            with st.expander("envelope functions", expanded=False):
                 ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=ctfs[i].bfactor, min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}")
                 ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=ctfs[i].alpha, min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
                 ctfs[i].dE = st.number_input('energy spread (eV)', value=ctfs[i].dE, min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
@@ -165,9 +164,9 @@ def main():
         else:
             value = int(plot_settings.get("show_1d", 1))
             show_1d = st.checkbox('show 1D CTF', value=value)
+            value = int(plot_settings.get("show_2d", 1))
+            show_2d = st.checkbox('show 2D CTF', value=value)
             if show_1d:
-                value = int(plot_settings.get("show_2d", 1))
-                show_2d = st.checkbox('show 2D CTF', value=value)
                 value = int(plot_settings.get("show_psf", 1))
                 show_psf = st.checkbox('show point spread function', value=value)
                 value = int(plot_settings.get("show_marker", 0))
@@ -176,7 +175,6 @@ def main():
                 plot_s2 = st.checkbox(label='plot s^2 as x-axis/radius', value=value)
                 show_data = st.checkbox('Show CTF raw data', value=False)
             else:
-                show_2d = True
                 show_psf = False
                 show_marker = False
                 plot_s2 = False            
@@ -191,12 +189,12 @@ def main():
     if not embed:
         if show_1d:
             if show_2d:
-                col2, col3 = st.beta_columns((5, 2))
+                col2, col3 = st.columns((5, 2))
             else:
-                col2, col3 = st.beta_columns((1, 0.01))
+                col2, col3 = st.columns((1, 0.01))
             col_info = col2
         else:
-            col2, col3 = st.beta_columns((0.01, 1))
+            col2, col3 = st.columns((0.01, 1))
             col_info = col3
 
     if show_1d:
@@ -368,7 +366,7 @@ def main():
             else:
                 st.bokeh_chart(fig2d, use_container_width=True)
             
-            with st.beta_expander("Simulate the CTF effect"):
+            with st.expander("Simulate the CTF effect"):
                 input_modes = ["Delta Function"]
                 emdb_ids = get_emdb_ids()
                 input_modes += ["Random EMDB ID", "Input an EMDB ID"]
@@ -601,7 +599,6 @@ def parse_query_parameters():
     for attr in attrs:
         if attr in query_params:
             plot_settings[attr] = query_params[attr][0]
-    print(query_params, ctfs, plot_settings, embed)
     return ctfs, plot_settings, embed
 
 def ctf_varying_parameter_labels(ctfs):
