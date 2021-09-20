@@ -164,10 +164,10 @@ def main():
         else:
             value = int(plot_settings.get("show_1d", 1))
             show_1d = st.checkbox('show 1D CTF', value=value)
-            value = int(plot_settings.get("show_2d", 1))
+            value = int(plot_settings.get("show_2d", 0))
             show_2d = st.checkbox('show 2D CTF', value=value)
             if show_1d:
-                value = int(plot_settings.get("show_psf", 1))
+                value = int(plot_settings.get("show_psf", 0))
                 show_psf = st.checkbox('show point spread function', value=value)
                 value = int(plot_settings.get("show_marker", 0))
                 show_marker = st.checkbox(label='show markers on CTF line plots', value=value)
