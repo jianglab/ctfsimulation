@@ -46,9 +46,7 @@ def main():
     st.set_page_config(page_title=title, layout="wide")
 
     session_state = st.session_state
-    magic = "MAGIC_12345"
-    if magic not in session_state:  # only run once at the start of the session
-        st.session_state[magic] = True
+    if not len(session_state):  # only run once at the start of the session
         st.elements.utils._shown_default_value_warning = True
         ctfs, plot_settings, embed = parse_query_parameters()
         session_state.plot_settings = plot_settings
@@ -653,7 +651,7 @@ class CTF:
         ret.update(self.__dict__)
         return ret
 
-    @st.cache(persist=True, show_spinner=False)
+    #@st.cache(persist=True, show_spinner=False)
     def ctf1d(self, apix, abs, plot_s2=False, defocus_override=None):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*apix)
@@ -684,7 +682,7 @@ class CTF:
 
         return s, s2, ctf
 
-    @st.cache(persist=True, show_spinner=False)
+    #@st.cache(persist=True, show_spinner=False)
     def psf1d(self, apix, abs, defocus_override=None):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*apix)
@@ -716,7 +714,7 @@ class CTF:
 
         return x, psf
 
-    @st.cache(persist=True, show_spinner=False)
+    #@st.cache(persist=True, show_spinner=False)
     def ctf2d(self, apix, abs, plot_s2=False):    
         s_nyquist = 1./(2*apix)
         if plot_s2:
@@ -760,14 +758,13 @@ class CTF:
 
         return ds, ds2, ctf
 
-@st.cache(persist=True, show_spinner=False)
+#@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def compute_radial_profile(image):
     ny, nx = image.shape
     rmax = min(nx//2, ny//2)+1
     
     r = np.arange(0, rmax, 1, dtype=np.float32)
     theta = np.arange(0, 360, 1, dtype=np.float32) * np.pi/180.
-    n_theta = len(theta)
 
     theta_grid, r_grid = np.meshgrid(theta, r, indexing='ij', copy=False)
     y_grid = ny//2 + r_grid * np.sin(theta_grid)
@@ -781,12 +778,12 @@ def compute_radial_profile(image):
     rad_profile = polar.mean(axis=0)
     return rad_profile
 
-@st.cache(persist=True, show_spinner=False)
+#@st.cache(persist=True, show_spinner=False)
 def normalize(data, percentile=(0, 100)):
     p0, p1 = percentile
     vmin, vmax = sorted(np.percentile(data, (p0, p1)))
     data2 = (data-vmin)/(vmax-vmin)
-    return data2
+    return data2.astype(np.float32)
 
 @st.cache(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
@@ -798,7 +795,7 @@ def get_emdb_ids():
         emdb_ids = ["11638"]
     return emdb_ids
 
-@st.cache(persist=True, show_spinner=False)
+@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     emdb_ids = get_emdb_ids()
     if emd_id in emdb_ids:
@@ -807,7 +804,7 @@ def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None)
     else:
         return None
 
-@st.cache(persist=True, show_spinner=False)
+@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
     from skimage.io import imread
     try:
@@ -826,7 +823,7 @@ def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
         image = -image + 1
     return image
 
-@st.cache(persist=True, show_spinner=False)
+#@st.cache(persist=True, show_spinner=False)
 def get_table_download_link(df, label="Download the CTF data"):
     """Generates a link allowing the data in a given panda dataframe to be downloaded
     in:  dataframe
