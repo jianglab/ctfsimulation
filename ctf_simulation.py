@@ -35,12 +35,14 @@ def import_with_auto_install(packages, scope=locals()):
             import subprocess
             subprocess.call(f'pip install {package_pip_name}', shell=True)
             scope[package_import_name] =  __import__(package_import_name)
-required_packages = "streamlit numpy scipy bokeh skimage:scikit_image".split()
+required_packages = "streamlit numpy scipy bokeh".split()
 import_with_auto_install(required_packages)
 
 import streamlit as st
 import numpy as np
 
+#from memory_profiler import profile
+#@profile(precision=4)
 def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
@@ -286,6 +288,7 @@ def main():
                 """)
                 fig.js_on_event(DoubleTap, toggle_legend_js)
             st.bokeh_chart(fig, use_container_width=True)
+            del fig
 
             if not embed:
                 if show_psf:
@@ -321,6 +324,7 @@ def main():
                         fig.js_on_event(DoubleTap, toggle_legend_js)
                     st.text("") # workaround for a layout bug in streamlit 
                     st.bokeh_chart(fig, use_container_width=True)
+                    del fig
 
                 if show_data:
                     import pandas as pd
@@ -353,6 +357,7 @@ def main():
                     title = f"{ctf_type}"
                 fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, title, plot_s2, show_color)
                 fig2ds.append(fig2d)
+                del ctf_2d
             if len(fig2ds)>1:
                 from bokeh.models import CrosshairTool
                 crosshair = CrosshairTool(dimensions="both")
@@ -361,8 +366,10 @@ def main():
                 from bokeh.layouts import gridplot
                 figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
                 st.bokeh_chart(figs_grid, use_container_width=True)
+                del figs_grid
             else:
                 st.bokeh_chart(fig2d, use_container_width=True)
+                del fig2d
             
             with st.expander("Simulate the CTF effect"):
                 input_modes = ["Delta Function"]
@@ -393,8 +400,9 @@ def main():
             image = None
             link = None
             if input_mode == "Delta Function":
-                image = np.zeros_like(ctf_2d)
-                ny, nx = image.shape
+                nx = ctfs[0].imagesize * ctfs[0].over_sample
+                ny = nx
+                image = np.zeros((ny, nx), dtype=np.float32)
                 image[ny//2, nx//2] = 255
             elif emdb_ids and input_txt.startswith("EMD-"):
                 emd_id = input_txt[4:]
@@ -417,10 +425,12 @@ def main():
             elif len(input_txt):
                 st.warning(f"{input_txt} is not a valid image link")
             if image is not None:
+                import_with_auto_install(["skimage:scikit_image"])
                 if link: st.markdown(link, unsafe_allow_html=True)
                 image = normalize(image)
                 fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
                 st.bokeh_chart(fig2d, use_container_width=True)
+                del fig2d
 
                 fig2ds = []
                 for i in range(n):
@@ -434,6 +444,8 @@ def main():
                         title = f"{ctf_type} Applied"
                     fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                     fig2ds.append(fig2d)
+                    del ctf_2d, image2, image_work
+                del image
                 if len(fig2ds)>1:
                     from bokeh.models import CrosshairTool
                     crosshair = CrosshairTool(dimensions="both")
@@ -442,8 +454,10 @@ def main():
                     from bokeh.layouts import gridplot
                     figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
                     st.bokeh_chart(figs_grid, use_container_width=True)
+                    del figs_grid
                 else:
                     st.bokeh_chart(fig2d, use_container_width=True)
+                    del fig2d
 
     with col_info:
         if not embed:
@@ -726,6 +740,7 @@ class CTF:
             theta = -np.arctan2(sy2, sx2)
             s2 = np.hypot(sx2, sy2)
             s = np.sqrt(s2)
+            del sx2, sy2
         else:
             ds2 = None
             ds = s_nyquist/(self.imagesize//2*self.over_sample)
@@ -735,6 +750,7 @@ class CTF:
             theta = -np.arctan2(sy, sx)
             s2 = sx*sx + sy*sy
             s = np.sqrt(s2)
+            del sx, sy
 
         defocus2d = self.defocus + self.dfdiff/2*np.cos( 2*(theta-self.dfang*np.pi/180.))
 
@@ -755,7 +771,7 @@ class CTF:
         ctf = np.sin(gamma) * env
         if abs>=2: ctf = ctf*ctf
         elif abs==1: ctf = np.abs(ctf)
-
+        del gamma, env, phaseshift, defocus2d, s, s2, theta
         return ds, ds2, ctf
 
 #@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
