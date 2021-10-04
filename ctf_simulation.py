@@ -53,14 +53,10 @@ def main():
         ctfs, plot_settings, embed = parse_query_parameters()
         session_state.plot_settings = plot_settings
         session_state.embed = embed
-        if ctfs is not None: session_state.ctfs = ctfs
-        if "ctfs" not in session_state:
-            session_state.ctfs = [CTF()]
-        session_state.n0 = len(session_state.ctfs)
-        update_session_state_from_ctfs()
+        set_session_state_from_ctfs(ctfs)
     plot_settings = session_state.plot_settings
     embed = session_state.embed
-    ctfs = session_state.ctfs
+    ctfs = get_ctfs_from_session_state()
 
     if embed:
         col1, col2 = st.columns((1, 5))
@@ -71,119 +67,93 @@ def main():
 
     with col1:
         if embed:
-            ctf_type = 'CTF'
-            plot_abs = 0
             n = 1
         else:
-            options = ('CTF', '|CTF|', 'CTF^2')
-            value = options.index(plot_settings.get("ctf_type", 'CTF'))
-            ctf_type = st.selectbox(label='CTF type', options=options, index=value)
-            plot_abs = options.index(ctf_type)
-            n = int(st.number_input('# of CTFs', value=session_state.n0, min_value=1, step=1))
-        if n>len(ctfs):
-            ctfs += [ CTF() for i in range(n-len(ctfs)) ]
-            default_ctf_vals = CTF().get_dict()
-            for i in range(n):
-                for attr in default_ctf_vals.keys():
-                    attr_i = f"{attr}_{i}"
-                    if attr_i not in session_state:
-                        session_state[attr_i] = default_ctf_vals[attr]
-        elif n<len(ctfs):
-            session_state.ctfs = ctfs[:n]
-            ctfs = session_state.ctfs
-            default_ctf_vals = CTF().get_dict()
-            for i in range(n, len(ctfs)):
-                for attr in default_ctf_vals.keys():
-                    attr_i = f"{attr}_{i}"
-                    if attr_i in session_state:
-                        del session_state[attr_i]
+            n = int(st.number_input('Number of CTFs', value=max(1, len(ctfs)), min_value=1, step=1))
+        if len(ctfs)==0:
+            ctfs = [ CTF() for i in range(n) ]
+        elif n>len(ctfs):
+            ctfs += [ ctfs[-1].copy() for i in range(n-len(ctfs)) ]
+        else:
+            ctfs = ctfs[:n]
+        set_session_state_from_ctfs(ctfs)
         
-        update_ctfs_from_session_state()
         assert(n == len(ctfs))
-        if n>1:
-            i = int(st.number_input('CTF i=?', value=1, min_value=1, max_value=n, step=1))
-            i -= 1
-        else:
-            i = 0
-        if embed:
-            ctfs[i].defocus = st.number_input('defocus (µm)', value=ctfs[i].defocus, min_value=0.0, step=0.1, format="%.5g", key=f"defocus_{i}")
-            rotavg = False
-        else:
-            key_defocus = f"defocus_{i}"
-            key_defocus_number_input = f"defocus_{i}_number_input"
-            key_defocus_slider = f"defocus_{i}_slider"
-            session_state[key_defocus_number_input] = ctfs[i].defocus
-            session_state[key_defocus_slider] = ctfs[i].defocus
-            def defocus_number_input_2_slider():
-                st.session_state[key_defocus_slider] = st.session_state[key_defocus_number_input]
-                st.session_state[key_defocus] = st.session_state[key_defocus_number_input]
-            def defocus_slider_2_number_input():
-                st.session_state[key_defocus_number_input] = st.session_state[key_defocus_slider]
-                st.session_state[key_defocus] = st.session_state[key_defocus_slider]
-            ctfs[i].defocus = st.number_input('defocus (µm)', min_value=0.0, step=0.1, format="%.5g", key=key_defocus_number_input, on_change=defocus_number_input_2_slider)
-            ctfs[i].defocus = st.slider('', min_value=0.0, max_value=max(0.1, session_state[key_defocus_number_input]*2.0), step=max(1e-4, session_state[key_defocus_number_input]*2.0/1000), format="%.5g", key=key_defocus_slider, on_change=defocus_slider_2_number_input)
-            ctfs[i].dfdiff = st.number_input('astigmatism mag (µm)', value=ctfs[i].dfdiff, min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
-            if n==1 and ctfs[i].dfdiff:
-                value = ctf_type=='CTF^2'
-                rotavg = st.checkbox(label='plot rotational average', value=value)
-            else:
-                rotavg = False
-            ctfs[i].dfang = st.number_input('astigmatism angle (°)', value=ctfs[i].dfang, min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
-        ctfs[i].phaseshift = st.number_input('phase shift (°)', value=ctfs[i].phaseshift, min_value=0.0, max_value=360., step=1.0, format="%g", key=f"phaseshift_{i}")
-        value = float(plot_settings.get("apix", 1.0))
-        apix = st.number_input('pixel size (Å/pixel)', value=value, min_value=0.1, step=0.01, format="%g")
-        if embed:
-            ctfs[i].imagesize = int(plot_settings.get("imagesize", 1024))
-            ctfs[i].over_sample = 1
-        else:
-            ctfs[i].imagesize = int(st.number_input('image size (pixel)', value=ctfs[i].imagesize, min_value=16, max_value=4096, step=4, key=f"imagesize_{i}"))
-            ctfs[i].over_sample = int(st.slider('over-sample (1x, 2x, 3x, etc)', value=ctfs[i].over_sample, min_value=1, max_value=6, step=1, key=f"over_sample_{i}"))
-        
-            with st.expander("envelope functions", expanded=False):
-                ctfs[i].bfactor = st.number_input('b-factor (Å^2)', value=ctfs[i].bfactor, min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}")
-                ctfs[i].alpha = st.number_input('beam convergence semi-angle (mrad)', value=ctfs[i].alpha, min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
-                ctfs[i].dE = st.number_input('energy spread (eV)', value=ctfs[i].dE, min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
-                ctfs[i].dI = st.number_input('objective lens current spread (ppm)', value=ctfs[i].dI, min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
-                if ctfs[i].dE or ctfs[i].dI:
-                    ctfs[i].cc = st.number_input('cc (mm)', value=ctfs[i].dE, min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
-                ctfs[i].dZ = st.number_input('sample vertical motion (Å)', value=ctfs[i].dZ, min_value=0.0, step=20.0, format="%g", key=f"dZ_{i}")
-                ctfs[i].dXY = st.number_input('sample horizontal motion (Å)', value=ctfs[i].dXY, min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
+        # make radio display horizontal
+        st.markdown('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
 
-        ctfs[i].voltage = st.number_input('voltage (kV)', value=ctfs[i].voltage, min_value=10., step=100., format="%g", key=f"voltage_{i}")
-        ctfs[i].cs = st.number_input('cs (mm)', value=ctfs[i].cs, min_value=0.0, step=0.1, format="%g", key=f"cs_{i}")
-        ctfs[i].ampcontrast = st.number_input('amplitude contrast (percent)', value=ctfs[i].ampcontrast, min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
+        show_marker_empties = []
+        for i in range(n):
+            if n>1:
+                expander = st.expander(label=f"CTF {i+1}", expanded=True if i==n-1 else False)
+            else:
+                import contextlib
+                expander = contextlib.nullcontext()
+            with expander:
+                if not embed:
+                    options = ('CTF', '|CTF|', 'CTF^2')
+                    st.radio(label='CTF type', options=options, index=0, key=f"ctf_type_{i}")
+                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], min_value=0.0, step=0.1, format="%.5g", key=f"defocus_{i}")
+                if embed:
+                    rotavg = False
+                else:
+                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
+                    if n==1 and ctfs[i].dfdiff:
+                        value = ctfs[i].ctf_type == 2
+                        rotavg = st.checkbox(label='plot rotational average', value=value)
+                    else:
+                        rotavg = False
+                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
+                st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"phaseshift_{i}")
+                st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", key=f"apix_{i}")
+                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", key=f"voltage_{i}")
+                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=0.0, step=0.1, format="%g", key=f"cs_{i}")
+                st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
+                if not embed:
+                    st.number_input('image size (pixel)', value=int(st.session_state[f"imagesize_{i}"]), min_value=16, max_value=4096, step=4, key=f"imagesize_{i}")
+                    st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, key=f"over_sample_{i}")
+                
+                    #with st.expander("envelope functions", expanded=False):
+                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}")
+                    st.number_input('beam convergence semi-angle (mrad)', value=st.session_state[f"alpha_{i}"], min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
+                    dE = st.number_input('energy spread (eV)', value=st.session_state[f"dE_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
+                    dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
+                    if dE or dI:
+                        st.number_input('cc (mm)', min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
+                    st.number_input('sample vertical motion (Å)', value=st.session_state[f"dZ_{i}"], min_value=0.0, step=20.0, format="%g", key=f"dZ_{i}")
+                    st.number_input('sample horizontal motion (Å)', value=st.session_state[f"dXY_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
+
+                show_marker_empties.append(st.empty())
 
         if embed:
             show_1d = True
             show_2d = False
             show_psf = False
-            show_marker = False
             plot_s2 = False
             show_data = False
             share_url = False
         else:
             value = int(plot_settings.get("show_1d", 1))
-            show_1d = st.checkbox('show 1D CTF', value=value)
+            show_1d = st.checkbox('Show 1D CTF', value=value)
             value = int(plot_settings.get("show_2d", 0))
-            show_2d = st.checkbox('show 2D CTF', value=value)
+            show_2d = st.checkbox('Show 2D CTF', value=value)
             if show_1d:
                 value = int(plot_settings.get("show_psf", 0))
-                show_psf = st.checkbox('show point spread function', value=value)
-                value = int(plot_settings.get("show_marker", 0))
-                show_marker = st.checkbox(label='show markers on CTF line plots', value=value)
+                show_psf = st.checkbox('Show point spread function', value=value)
+                for i in range(n):
+                    show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
                 value = int(plot_settings.get("plot_s2", 0))
-                plot_s2 = st.checkbox(label='plot s^2 as x-axis/radius', value=value)
+                plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value)
                 show_data = st.checkbox('Show CTF raw data', value=False)
             else:
                 show_psf = False
-                show_marker = False
                 plot_s2 = False            
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
             if share_url:
-                set_query_parameters(ctfs, ctf_type, apix, show_1d, show_2d, show_psf, plot_s2, show_marker)
+                set_query_parameters(ctfs, show_1d, show_2d, show_psf, plot_s2)
             else:
                 st.experimental_set_query_params()
-
+    ctfs = get_ctfs_from_session_state()
     ctf_labels = ctf_varying_parameter_labels(ctfs)
 
     if not embed:
@@ -209,12 +179,12 @@ def main():
                 x_label = "s (1/Å)"
                 hover_x_var = "s"
                 hover_x_val = "$x 1/Å"
-            y_label = f"{ctf_type}"
+            y_label = f"{' / '.join([ctf.ctf_type for ctf in ctfs])}"
 
             tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
-            hover_tips = [("Res", "@res Å"), (hover_x_var, hover_x_val), (f"{ctf_type}", "$y")]
+            hover_tips = [("Res", "@res Å"), (hover_x_var, hover_x_val), ("fval", "$y")]
             if n>1 or (n==1 and ctfs[0].dfdiff):
-                hover_tips = [("Defocus", "@defocus µm")] + hover_tips
+                hover_tips = [("CTF type", "@ctf_type"), ("Defocus", "@defocus µm")] + hover_tips
             fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, tools=tools, tooltips=hover_tips)
             fig.title.align = "center"
             fig.title.text_font_size = "18px"
@@ -233,15 +203,17 @@ def main():
                 else:
                     defocuses = [ctfs[i].defocus]
                 for di, defocus in enumerate(defocuses):
-                    s, s2, ctf = ctfs[i].ctf1d(apix, plot_abs, plot_s2, defocus_override=defocus)
+                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus)
                     x = s2 if plot_s2 else s
                     res = np.hstack(([1e6],  1/s[1:]))
                     source = dict(x=x, res=res, y=ctf)
-                    if n>1 or (n==1 and ctfs[0].dfdiff): source["defocus"] = [defocus] * len(x)
+                    if n>1 or (n==1 and ctfs[0].dfdiff):
+                        source["ctf_type"] = [ctfs[i].ctf_type] * len(x)
+                        source["defocus"] = [defocus] * len(x)
                     line_dash = line_dashes[di] if len(defocuses)>1 else "solid"
                     line_width = 2 if len(defocuses)==1 or di==1 else 1
                     line = fig.line(x='x', y='y', color=color, source=source, line_dash=line_dash, line_width=line_width)
-                    if show_marker:
+                    if ctfs[i].show_marker:
                         fig.circle(x='x', y='y', color=color, source=source)
                     if len(defocuses)>1:
                         label = f"defocus={round(defocus, 4):g} µm"
@@ -256,7 +228,7 @@ def main():
                         raw_data.append((label, s, x, ctf))
 
                 if n==1 and rotavg:
-                    _, _, ctf_2d = ctfs[i].ctf2d(apix, plot_abs, plot_s2)
+                    _, _, ctf_2d = ctfs[i].ctf2d(plot_s2)
                     rad_profile = compute_radial_profile(ctf_2d)
                     x = s2 if plot_s2 else s
                     source = dict(x=x, res=1/s, y=rad_profile)
@@ -269,7 +241,7 @@ def main():
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
-            fig.y_range.start = -1 if ctf_type == 'CTF' else 0
+            fig.y_range.start = -1 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
             fig.y_range.end = 1
             if len(legends)>1:
                 from bokeh.models import Legend
@@ -296,15 +268,17 @@ def main():
                     hover_tips = [("x", "$x Å"), (f"PSF", "$y")]
                     if n>1:
                         hover_tips = [("Defocus", "@defocus µm")] + hover_tips
-                    fig = figure(title=f"Point Spread Function of {ctf_type}", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
+                    fig = figure(title=f"Point Spread Function", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
                     fig.title.align = "center"
                     fig.title.text_font_size = "18px"     
                     legends = []           
                     for i in range(n):
-                        x_psf, psf = ctfs[i].psf1d(apix, abs=plot_abs)
+                        x_psf, psf = ctfs[i].psf1d()
                         source = dict(x=x_psf, y=psf)
                         if n>1: source["defocus"] = [ctfs[i].defocus] * len(x_psf)
                         line = fig.line(x='x', y='y', source=source, line_width=2, color=colors[i%len(colors)])
+                        if ctfs[i].show_marker:
+                            fig.circle(x='x', y='y', color=color, source=source)
                         legends.append(LegendItem(label=ctf_labels[i], renderers=[line]))
                     if len(legends)>1:
                         from bokeh.models import Legend
@@ -349,13 +323,13 @@ def main():
 
             fig2ds = []
             for i in range(n):
-                ds, ds2, ctf_2d = ctfs[i].ctf2d(apix, plot_abs, plot_s2)
+                ds, ds2, ctf_2d = ctfs[i].ctf2d(plot_s2)
                 dxy = ds2 if plot_s2 else ds
                 if n>1:
-                    title = f"{ctf_type} - {i+1}"
+                    title = f"{i+1} - {ctfs[i].ctf_type}"
                 else:
-                    title = f"{ctf_type}"
-                fig2d = generate_image_figure(ctf_2d, dxy, ctf_type, title, plot_s2, show_color)
+                    title = f"{ctfs[i].ctf_type}"
+                fig2d = generate_image_figure(ctf_2d, dxy, ctfs[i].ctf_type, title, plot_s2, show_color)
                 fig2ds.append(fig2d)
                 del ctf_2d
             if len(fig2ds)>1:
@@ -394,7 +368,7 @@ def main():
                     session_state.emd_id = input_txt.lower().split("emd_")[-1]
                 elif input_mode == "Input an image url":
                     label = "Input an image url:"
-                    value = "https://images-na.ssl-images-amazon.com/images/I/61pSCxXEP8L._AC_SL1000_.jpg"
+                    value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
                     input_txt = st.text_input(label=label, value=value).strip()
             
             image = None
@@ -434,14 +408,14 @@ def main():
 
                 fig2ds = []
                 for i in range(n):
-                    _, _, ctf_2d = ctfs[i].ctf2d(apix, abs=plot_abs, plot_s2=False)
+                    _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False)
                     from skimage.transform import resize
                     image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
                     image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
                     if n>1:
-                        title = f"{ctf_type} Applied - {i+1}"
+                        title = f"{i+1} - {ctfs[i].ctf_type} Applied"
                     else:
-                        title = f"{ctf_type} Applied"
+                        title = f"{ctfs[i].ctf_type} Applied"
                     fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                     fig2ds.append(fig2d)
                     del ctf_2d, image2, image_work
@@ -463,7 +437,7 @@ def main():
         if not embed:
             st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
 
-        st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
+        st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctf-simulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
     hide_streamlit_style = """
     <style>
@@ -553,37 +527,58 @@ def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color
     
     return fig2d
 
-def update_session_state_from_ctfs():
-    for ci, ctf in enumerate(st.session_state.ctfs):
-        d = ctf.get_dict()
+def set_session_state_from_ctfs(ctfs, remove_extra_keys=True):
+    if len(ctfs)==0: return
+    n = len(ctfs)
+    for i in range(n):
+        d = ctfs[i].get_dict()
         for attr in d.keys():
-            attr_i = f"{attr}_{ci}"
-            st.session_state[attr_i] = d[attr]
+            attr_i = f"{attr}_{i}"
+            if attr_i not in st.session_state:
+                st.session_state[attr_i] = d[attr]
+    if remove_extra_keys:
+        for k in st.session_state:
+            if k.rfind("_")==-1: continue
+            attr, i = k.rsplit("_", maxsplit=1)
+            if attr in d and int(i)>=n:
+                del st.session_state[k]
 
-def update_ctfs_from_session_state():
-    for ci, ctf in enumerate(st.session_state.ctfs):
-        d = ctf.get_dict()
-        for attr in d.keys():
-            attr_i = f"{attr}_{ci}"
-            if attr_i in st.session_state:
-                setattr(ctf, attr, st.session_state[attr_i])
-        ctf.imagesize = int(ctf.imagesize)
-        ctf.over_sample = int(ctf.over_sample)
+def get_ctfs_from_session_state():
+    d = CTF().get_dict()
+    attrs = []
+    for k in st.session_state:
+        if k.rfind("_")==-1: continue
+        attr, i = k.rsplit("_", maxsplit=1)
+        if attr in d:
+            i = int(i)
+            attrs.append( (i, attr, st.session_state[k]) )
+    if len(attrs)<1:
+        return []
+    
+    attrs.sort()
+    n = attrs[-1][0]+1
+    ctfs = [CTF() for i in range(n)]
+    for i, attr, val in attrs:
+        setattr(ctfs[i], attr, val)
+    return ctfs
 
-def set_query_parameters(ctfs, ctf_type, apix, show_1d, show_2d, show_psf, plot_s2, show_marker):
+def set_query_parameters(ctfs, show_1d, show_2d, show_psf, plot_s2):
     d = {}
-    if ctf_type != "CTF": d["ctf_type"] = ctf_type
-    if apix != 1.0: d["apix"] = apix
     if not show_1d: d["show_1d"] = 0
-    if not show_2d: d["show_2d"] = 0
-    if not show_psf: d["show_psf"] = 0
+    if show_2d: d["show_2d"] = 1
+    if show_psf: d["show_psf"] = 1
     if plot_s2: d["plot_s2"] = 1
-    if show_marker: d["show_marker"] = 1
     default_vals = CTF().get_dict()
     for attr in default_vals.keys():
-        vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
-        if np.any(vals - default_vals[attr]):
-            d[attr] = vals
+        if attr == "ctf_type":
+            vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
+            vals_set = set(vals)
+            if len(vals_set)>1 or list(vals_set)[0] != "CTF":
+                d[attr] = vals
+        else:
+            vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
+            if np.any(vals - default_vals[attr]):
+                d[attr] = vals
     st.experimental_set_query_params(**d)
 
 def parse_query_parameters():
@@ -592,34 +587,44 @@ def parse_query_parameters():
     attrs = CTF().get_dict().keys()
     ns = [len(query_params[attr]) for attr in attrs if attr in query_params]
     if not ns:
-        ctfs = None
+        ctfs = []
     else:
         n = int(max(ns))
         ctfs = [CTF() for i in range(n)]
+        str_types = ["ctf_type"]
+        int_types = ["imagesize", "over_sample", "show_marker"]
         for attr in attrs:
             if attr in query_params:
-                for i in range(n):
-                    setattr(ctfs[i], attr, float(query_params[attr][-1]))
                 for i in range(len(query_params[attr])):
-                    setattr(ctfs[i], attr, float(query_params[attr][i]))
-        for i in range(len(ctfs)):
-            ctfs[i].imagesize = max(32, int(ctfs[i].imagesize))
-            ctfs[i].over_sample = max(1, int(ctfs[i].over_sample))
-
-    attrs = "ctf_type apix show_1d show_2d show_psf plot_s2 show_marker".split()
+                    if attr in str_types:
+                        setattr(ctfs[i], attr, query_params[attr][i])
+                    elif attr in int_types:
+                        setattr(ctfs[i], attr, int(query_params[attr][i]))
+                    else:
+                        setattr(ctfs[i], attr, float(query_params[attr][i]))
+    attrs = "show_1d show_2d show_psf plot_s2".split()
     plot_settings = {}
     for attr in attrs:
         if attr in query_params:
-            plot_settings[attr] = query_params[attr][0]
+            plot_settings[attr] = int(query_params[attr][0])
     return ctfs, plot_settings, embed
 
 def ctf_varying_parameter_labels(ctfs):
+    str_types = ["ctf_type"]
+    int_types = ["imagesize", "over_sample", "show_marker"]
     ret = []
     attrs = ctf_varying_parameters(ctfs)
     if attrs:
         for ctf in ctfs:
+            tokens = []
             for attr in attrs:
-                s = '/'.join([f'{attr}={getattr(ctf, attr)}' for attr in attrs])
+                if attr in str_types:
+                    tokens += [f'{attr}={getattr(ctf, attr)}']
+                elif attr in int_types:
+                    tokens += [f'{attr}={int(getattr(ctf, attr))}']
+                else:
+                    tokens += [f'{attr}={getattr(ctf, attr):.6g}']
+            s = '/'.join(tokens)
             ret.append(s)
     else:
         ret = [f'{i+1}' for i in range(len(ctfs))]
@@ -627,16 +632,21 @@ def ctf_varying_parameter_labels(ctfs):
 
 def ctf_varying_parameters(ctfs):
     if len(ctfs)<2: return []
-    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY imagesize over_sample".split()
+    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix imagesize over_sample ctf_type show_marker".split()
     ret = []
     for attr in attrs:
-        vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
-        if np.std(vals):
-            ret.append(attr)
+        vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
+        if attr in ["ctf_type"]:
+            if len(set(vals))>1:
+                ret.append(attr)
+        else:
+            vals = np.array(vals)
+            if np.std(vals)>1e-6:
+                ret.append(attr)
     return ret
 
 class CTF:
-    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, imagesize=256, over_sample=1):
+    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0):
         self.voltage = voltage
         self.cs = cs
         self.ampcontrast = ampcontrast
@@ -651,14 +661,21 @@ class CTF:
         self.dI = dI
         self.dZ = dZ
         self.dXY = dXY
+        self.apix = apix
         self.imagesize = int(imagesize)
         self.over_sample = int(over_sample)
+        self.ctf_type = ctf_type    # CTF, |CTF|, CTF^2
+        self.show_marker = int(show_marker)
     
     def __str__(self):
         return str(self.get_dict())
 
     def __repr__(self):
         return self.__str__()
+
+    def copy(self):
+        import copy
+        return copy.copy(self)
     
     def get_dict(self):
         ret = {}
@@ -666,9 +683,9 @@ class CTF:
         return ret
 
     #@st.cache(persist=True, show_spinner=False)
-    def ctf1d(self, apix, abs, plot_s2=False, defocus_override=None):
+    def ctf1d(self, plot_s2=False, defocus_override=None):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
-        s_nyquist = 1./(2*apix)
+        s_nyquist = 1./(2*self.apix)
         if plot_s2:
             ds2 = s_nyquist*s_nyquist/(self.imagesize//2*self.over_sample)
             s2 = np.arange(self.imagesize//2*self.over_sample+1, dtype=np.float32)*ds2
@@ -691,15 +708,15 @@ class CTF:
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
         ctf = np.sin(gamma) * env
-        if abs>=2: ctf = ctf*ctf
-        elif abs==1: ctf = np.abs(ctf)
+        if self.ctf_type == "CTF^2": ctf = ctf*ctf
+        elif self.ctf_type == "|CTF|": ctf = np.abs(ctf)
 
         return s, s2, ctf
 
     #@st.cache(persist=True, show_spinner=False)
-    def psf1d(self, apix, abs, defocus_override=None):
+    def psf1d(self, defocus_override=None):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
-        s_nyquist = 1./(2*apix)
+        s_nyquist = 1./(2*self.apix)
         ds = s_nyquist/(self.imagesize//2)
         s = (np.arange(self.imagesize, dtype=np.float32) - self.imagesize//2)*ds
         s2 = s*s
@@ -717,20 +734,20 @@ class CTF:
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
         ctf = np.sin(gamma) * env
-        if abs>=2: ctf = ctf*ctf
-        elif abs==1: ctf = np.abs(ctf)
+        if self.ctf_type == "CTF^2": ctf = ctf*ctf
+        elif self.ctf_type== "|CTF|": ctf = np.abs(ctf)
 
         unity = np.ones((self.imagesize,), dtype=np.complex64)
         psf = np.abs( np.fft.ifft( unity * np.fft.ifftshift(ctf) ) )
         psf = np.fft.fftshift(psf)
         psf /= np.linalg.norm(psf, ord=2)
-        x = (np.arange(self.imagesize)-self.imagesize//2) * apix
+        x = (np.arange(self.imagesize)-self.imagesize//2) * self.apix
 
         return x, psf
 
     #@st.cache(persist=True, show_spinner=False)
-    def ctf2d(self, apix, abs, plot_s2=False):    
-        s_nyquist = 1./(2*apix)
+    def ctf2d(self, plot_s2=False):    
+        s_nyquist = 1./(2*self.apix)
         if plot_s2:
             ds = None
             ds2 = s_nyquist*s_nyquist/(self.imagesize//2*self.over_sample)
@@ -769,8 +786,8 @@ class CTF:
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
         ctf = np.sin(gamma) * env
-        if abs>=2: ctf = ctf*ctf
-        elif abs==1: ctf = np.abs(ctf)
+        if self.ctf_type == "CTF^2": ctf = ctf*ctf
+        elif self.ctf_type== "|CTF|": ctf = np.abs(ctf)
         del gamma, env, phaseshift, defocus2d, s, s2, theta
         return ds, ds2, ctf
 
