@@ -308,6 +308,7 @@ def main():
                         columns = [col.rjust(maxlen+10) for col in columns]
                         data = np.zeros((len(x), 3))
                         data[:,0] = x
+                        s[0] = 1e-6 # avoid divsion by zero warning
                         data[:,1] = 1./s
                         data[:,2] = ctf
                         df = pd.DataFrame(data, columns=columns)
@@ -346,38 +347,49 @@ def main():
                 del fig2d
             
             with st.expander("Simulate the CTF effect"):
-                input_modes = ["Delta Function"]
+                input_modes = ["Pattern"]
                 emdb_ids = get_emdb_ids()
-                input_modes += ["Random EMDB ID", "Input an EMDB ID"]
+                input_modes += ["EMDB ID"]
                 if "emd_id" not in session_state:
                     import random
                     session_state.emd_id = random.choice(emdb_ids)
-                input_modes += ["Input an image url"]
-                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=3)
-                if input_mode == "Random EMDB ID":
-                    button_clicked = st.button(label="Change EMDB ID")
-                    if button_clicked:
-                        import random
-                        session_state.emd_id = random.choice(emdb_ids)
-                    input_txt = f"EMD-{session_state.emd_id}"
-                elif input_mode == "Input an EMDB ID":
-                    emd_id = session_state.emd_id        
-                    label = "Input an EMDB ID"
-                    value = f"EMD-{emd_id}"
-                    input_txt = st.text_input(label=label, value=value).strip()
-                    session_state.emd_id = input_txt.lower().split("emd_")[-1]
-                elif input_mode == "Input an image url":
+                input_modes += ["URL"]
+                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2)
+                if input_mode == "Pattern":
+                    mapping = \
+                        {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
+                            "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
+                            "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
+                        }
+                    pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()))
+                    if pattern_option not in ["Delta Function"]:
+                        input_txt = mapping[pattern_option]
+                elif input_mode == "EMDB ID":
+                    do_random_embid = st.checkbox("Choose a random EMDB ID", value=False)
+                    if do_random_embid:
+                        help = "Randomly select another EMDB ID"
+                        button_clicked = st.button(label="Change EMDB ID", help=help)
+                        if button_clicked:
+                            import random
+                            session_state.emd_id = random.choice(emdb_ids)
+                        input_txt = f"EMD-{session_state.emd_id}"
+                    else:
+                        label = "Input an EMDB ID"
+                        value = f"EMD-{session_state.emd_id}"
+                        input_txt = st.text_input(label=label, value=value).strip()
+                        session_state.emd_id = input_txt.lower().split("emd_")[-1]
+                elif input_mode == "URL":
                     label = "Input an image url:"
                     value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
                     input_txt = st.text_input(label=label, value=value).strip()
             
             image = None
             link = None
-            if input_mode == "Delta Function":
+            if input_mode == "Pattern" and pattern_option == "Delta Function":
                 nx = ctfs[0].imagesize * ctfs[0].over_sample
                 ny = nx
                 image = np.zeros((ny, nx), dtype=np.float32)
-                image[ny//2, nx//2] = 255
+                image[ny//2, nx//2] = 255                    
             elif emdb_ids and input_txt.startswith("EMD-"):
                 emd_id = input_txt[4:]
                 if emd_id in emdb_ids:
@@ -551,7 +563,10 @@ def get_ctfs_from_session_state():
         attr, i = k.rsplit("_", maxsplit=1)
         if attr in d:
             i = int(i)
-            attrs.append( (i, attr, st.session_state[k]) )
+            if attr in ["imagesize", "over_sample", "show_marker"]:
+                attrs.append( (i, attr, int(st.session_state[k])) )
+            else:
+                attrs.append( (i, attr, st.session_state[k]) )
     if len(attrs)<1:
         return []
     
@@ -846,7 +861,21 @@ def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
         return None
     if output_shape:
         from skimage.transform import resize
-        image = resize(image, output_shape=output_shape)
+        ny, nx = image.shape
+        ny2, nx2 = output_shape
+        if ny!=ny2 or nx!=nx2:
+            if ny/nx>ny2/nx2:
+                ny_tmp = int(round(ny2/nx2 * nx))
+                nx_tmp = nx
+            else:
+                ny_tmp = ny
+                nx_tmp = int(round(nx2/ny2 * ny))
+            j0 = ny//2 - ny_tmp//2
+            j1 = j0 + ny_tmp
+            i0 = nx//2 - nx_tmp//2
+            i1 = i0 + nx_tmp
+            image = image[ j0:j1, i0:i1 ]
+            image = resize(image, output_shape=output_shape, anti_aliasing=True)
     vmin, vmax = np.percentile(image, (5, 95))
     image = (image-vmin)/(vmax-vmin)    # set to range [0, 1]
     if invert_contrast<0: # detect if the image contrast should be inverted (i.e. to make background black)
