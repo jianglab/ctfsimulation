@@ -48,13 +48,10 @@ def main():
     st.set_page_config(page_title=title, layout="wide")
 
     session_state = st.session_state
-    if not len(session_state):  # only run once at the start of the session
+    if "defocus_0" not in session_state:  # only run once at the start of the session
         st.elements.utils._shown_default_value_warning = True
-        ctfs, plot_settings, embed = parse_query_parameters()
-        session_state.plot_settings = plot_settings
-        session_state.embed = embed
+        ctfs = parse_query_parameters()
         set_session_state_from_ctfs(ctfs)
-    plot_settings = session_state.plot_settings
     embed = session_state.embed
     ctfs = get_ctfs_from_session_state()
 
@@ -119,7 +116,7 @@ def main():
                     dE = st.number_input('energy spread (eV)', value=st.session_state[f"dE_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
                     dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
                     if dE or dI:
-                        st.number_input('cc (mm)', min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
+                        st.number_input('cc (mm)', value=2.7, min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
                     st.number_input('sample vertical motion (Å)', value=st.session_state[f"dZ_{i}"], min_value=0.0, step=20.0, format="%g", key=f"dZ_{i}")
                     st.number_input('sample horizontal motion (Å)', value=st.session_state[f"dXY_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
 
@@ -133,24 +130,24 @@ def main():
             show_data = False
             share_url = False
         else:
-            value = int(plot_settings.get("show_1d", 1))
-            show_1d = st.checkbox('Show 1D CTF', value=value)
-            value = int(plot_settings.get("show_2d", 0))
-            show_2d = st.checkbox('Show 2D CTF', value=value)
+            value = int(st.session_state.get("show_1d", 1))
+            show_1d = st.checkbox('Show 1D CTF', value=value, key="show_1d")
+            value = int(st.session_state.get("show_2d", 0))
+            show_2d = st.checkbox('Show 2D CTF', value=value, key="show_2d")
             if show_1d:
-                value = int(plot_settings.get("show_psf", 0))
-                show_psf = st.checkbox('Show point spread function', value=value)
+                value = int(st.session_state.get("show_psf", 0))
+                show_psf = st.checkbox('Show point spread function', value=value, key="show_psf")
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
-                value = int(plot_settings.get("plot_s2", 0))
-                plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value)
-                show_data = st.checkbox('Show CTF raw data', value=False)
+                value = int(st.session_state.get("plot_s2", 0))
+                plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value, key="plot_s2")
+                show_data = st.checkbox('Show CTF raw data', value=False, key="show_data")
             else:
                 show_psf = False
                 plot_s2 = False            
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
             if share_url:
-                set_query_parameters(ctfs, show_1d, show_2d, show_psf, plot_s2)
+                set_query_parameters(ctfs)
             else:
                 st.experimental_set_query_params()
     ctfs = get_ctfs_from_session_state()
@@ -354,14 +351,14 @@ def main():
                     import random
                     session_state.emd_id = random.choice(emdb_ids)
                 input_modes += ["URL"]
-                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2)
+                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
                 if input_mode == "Pattern":
                     mapping = \
                         {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
                             "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
                             "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
                         }
-                    pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()))
+                    pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()), key="pattern")
                     if pattern_option not in ["Delta Function"]:
                         input_txt = mapping[pattern_option]
                 elif input_mode == "EMDB ID":
@@ -381,7 +378,7 @@ def main():
                 elif input_mode == "URL":
                     label = "Input an image url:"
                     value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
-                    input_txt = st.text_input(label=label, value=value).strip()
+                    input_txt = st.text_input(label=label, value=value, key="url").strip()
             
             image = None
             link = None
@@ -398,7 +395,8 @@ def main():
                     link = f'[EMD-{emd_id}](https://www.emdataresource.org/EMD-{emd_id})'
                 else:
                     emd_id_bad = emd_id
-                    emd_id = random.choice(emdb_ids)
+                    from random import choice
+                    emd_id = choice(emdb_ids)
                     st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
             elif input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
                 url = input_txt
@@ -577,12 +575,25 @@ def get_ctfs_from_session_state():
         setattr(ctfs[i], attr, val)
     return ctfs
 
-def set_query_parameters(ctfs, show_1d, show_2d, show_psf, plot_s2):
+def set_query_parameters(ctfs):
+    state = st.session_state
     d = {}
-    if not show_1d: d["show_1d"] = 0
-    if show_2d: d["show_2d"] = 1
-    if show_psf: d["show_psf"] = 1
-    if plot_s2: d["plot_s2"] = 1
+    if not state.show_1d:
+        d["show_1d"] = 0
+    elif state.show_psf:
+        d["show_psf"] = 1
+    if state.show_2d:
+        d["show_2d"] = 1
+        if state.input_mode == "URL":
+            d["url"] = state.url
+        else:
+            d["input_mode"] = state.input_mode
+            if state.input_mode == "Pattern":
+                if state.pattern != "Delta Function":
+                    d["pattern"] = state.pattern
+            elif state.input_mode == "EMDB ID":
+                d["emd_id"] = state.emd_id
+    if state.plot_s2: d["plot_s2"] = 1
     default_vals = CTF().get_dict()
     for attr in default_vals.keys():
         if attr == "ctf_type":
@@ -598,9 +609,8 @@ def set_query_parameters(ctfs, show_1d, show_2d, show_psf, plot_s2):
 
 def parse_query_parameters():
     query_params = st.experimental_get_query_params()
-    embed = "embed" in query_params and query_params["embed"][0]!='0'
-    attrs = CTF().get_dict().keys()
-    ns = [len(query_params[attr]) for attr in attrs if attr in query_params]
+    ctf_attrs = CTF().get_dict().keys()
+    ns = [len(query_params[attr]) for attr in ctf_attrs if attr in query_params]
     if not ns:
         ctfs = []
     else:
@@ -608,7 +618,7 @@ def parse_query_parameters():
         ctfs = [CTF() for i in range(n)]
         str_types = ["ctf_type"]
         int_types = ["imagesize", "over_sample", "show_marker"]
-        for attr in attrs:
+        for attr in ctf_attrs:
             if attr in query_params:
                 for i in range(len(query_params[attr])):
                     if attr in str_types:
@@ -617,12 +627,18 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    attrs = "show_1d show_2d show_psf plot_s2".split()
-    plot_settings = {}
-    for attr in attrs:
-        if attr in query_params:
-            plot_settings[attr] = int(query_params[attr][0])
-    return ctfs, plot_settings, embed
+    int_types = "show_1d show_2d show_psf plot_s2".split()
+    other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
+    for attr in other_attrs:
+        if attr == "embed":
+            st.session_state.embed = "embed" in query_params and query_params["embed"][0]!='0'
+        elif attr in int_types:
+            st.session_state[attr] = int(query_params[attr][0])
+        else:
+            st.session_state[attr] = query_params[attr][0]
+    if "embed" not in st.session_state:
+        st.session_state.embed = 0
+    return ctfs
 
 def ctf_varying_parameter_labels(ctfs):
     str_types = ["ctf_type"]
