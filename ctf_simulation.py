@@ -146,10 +146,7 @@ def main():
                 show_psf = False
                 plot_s2 = False            
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
-            if share_url:
-                set_query_parameters(ctfs)
-            else:
-                st.experimental_set_query_params()
+
     ctfs = get_ctfs_from_session_state()
     ctf_labels = ctf_varying_parameter_labels(ctfs)
 
@@ -456,6 +453,11 @@ def main():
     </style>
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
+
+    if share_url:
+        set_query_parameters(ctfs)
+    else:
+        st.experimental_set_query_params()
 
 def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color=False):
     w, h = image.shape
