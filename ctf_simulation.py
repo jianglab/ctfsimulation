@@ -139,12 +139,20 @@ def main():
                 show_psf = st.checkbox('Show point spread function', value=value, key="show_psf")
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
-                value = int(st.session_state.get("plot_s2", 0))
-                plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value, key="plot_s2")
                 show_data = st.checkbox('Show CTF raw data', value=False, key="show_data")
             else:
                 show_psf = False
-                plot_s2 = False            
+                show_data = False
+            if show_2d:
+                value = int(st.session_state.get("simulate_ctf_effect", 0))
+                simulate_ctf_effect = st.checkbox('Simulate CTF effect on images', value=value, key="simulate_ctf_effect")
+
+            if show_1d or show_2d:
+                value = int(st.session_state.get("plot_s2", 0))
+                plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value, key="plot_s2")
+            else:
+                plot_s2 = False
+                      
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
 
     ctfs = get_ctfs_from_session_state()
@@ -340,105 +348,106 @@ def main():
                 st.bokeh_chart(fig2d, use_container_width=True)
                 del fig2d
             
-            with st.expander("Simulate the CTF effect"):
-                input_modes = ["Pattern"]
-                emdb_ids = get_emdb_ids()
-                input_modes += ["EMDB ID"]
-                if "emd_id" not in session_state:
-                    import random
-                    session_state.emd_id = random.choice(emdb_ids)
-                input_modes += ["URL"]
-                input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
-                if input_mode == "Pattern":
-                    mapping = \
-                        {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
-                            "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
-                            "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
-                        }
-                    pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()), key="pattern")
-                    if pattern_option not in ["Delta Function"]:
-                        input_txt = mapping[pattern_option]
-                elif input_mode == "EMDB ID":
-                    do_random_embid = st.checkbox("Choose a random EMDB ID", value=False)
-                    if do_random_embid:
-                        help = "Randomly select another EMDB ID"
-                        button_clicked = st.button(label="Change EMDB ID", help=help)
-                        if button_clicked:
-                            import random
-                            session_state.emd_id = random.choice(emdb_ids)
-                        input_txt = f"EMD-{session_state.emd_id}"
+            if simulate_ctf_effect:
+                with st.expander("Simulate the CTF effect"):
+                    input_modes = ["Pattern"]
+                    emdb_ids = get_emdb_ids()
+                    input_modes += ["EMDB ID"]
+                    if "emd_id" not in session_state:
+                        import random
+                        session_state.emd_id = random.choice(emdb_ids)
+                    input_modes += ["URL"]
+                    input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
+                    if input_mode == "Pattern":
+                        mapping = \
+                            {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
+                                "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
+                                "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
+                            }
+                        pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()), key="pattern")
+                        if pattern_option not in ["Delta Function"]:
+                            input_txt = mapping[pattern_option]
+                    elif input_mode == "EMDB ID":
+                        do_random_embid = st.checkbox("Choose a random EMDB ID", value=False)
+                        if do_random_embid:
+                            help = "Randomly select another EMDB ID"
+                            button_clicked = st.button(label="Change EMDB ID", help=help)
+                            if button_clicked:
+                                import random
+                                session_state.emd_id = random.choice(emdb_ids)
+                            input_txt = f"EMD-{session_state.emd_id}"
+                        else:
+                            label = "Input an EMDB ID"
+                            value = f"EMD-{session_state.emd_id}"
+                            input_txt = st.text_input(label=label, value=value).strip()
+                            session_state.emd_id = input_txt.lower().split("emd_")[-1]
+                    elif input_mode == "URL":
+                        label = "Input an image url:"
+                        value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
+                        input_txt = st.text_input(label=label, value=value, key="url").strip()
+                
+                image = None
+                link = None
+                if input_mode == "Pattern" and pattern_option == "Delta Function":
+                    nx = ctfs[0].imagesize * ctfs[0].over_sample
+                    ny = nx
+                    image = np.zeros((ny, nx), dtype=np.float32)
+                    image[ny//2, nx//2] = 255                    
+                elif emdb_ids and input_txt.startswith("EMD-"):
+                    emd_id = input_txt[4:]
+                    if emd_id in emdb_ids:
+                        session_state.emd_id = emd_id
+                        image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(ctfs[0].imagesize*ctfs[0].over_sample, ctfs[0].imagesize*ctfs[0].over_sample))
+                        link = f'[EMD-{emd_id}](https://www.emdataresource.org/EMD-{emd_id})'
                     else:
-                        label = "Input an EMDB ID"
-                        value = f"EMD-{session_state.emd_id}"
-                        input_txt = st.text_input(label=label, value=value).strip()
-                        session_state.emd_id = input_txt.lower().split("emd_")[-1]
-                elif input_mode == "URL":
-                    label = "Input an image url:"
-                    value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
-                    input_txt = st.text_input(label=label, value=value, key="url").strip()
-            
-            image = None
-            link = None
-            if input_mode == "Pattern" and pattern_option == "Delta Function":
-                nx = ctfs[0].imagesize * ctfs[0].over_sample
-                ny = nx
-                image = np.zeros((ny, nx), dtype=np.float32)
-                image[ny//2, nx//2] = 255                    
-            elif emdb_ids and input_txt.startswith("EMD-"):
-                emd_id = input_txt[4:]
-                if emd_id in emdb_ids:
-                    session_state.emd_id = emd_id
-                    image = get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=(ctfs[0].imagesize*ctfs[0].over_sample, ctfs[0].imagesize*ctfs[0].over_sample))
-                    link = f'[EMD-{emd_id}](https://www.emdataresource.org/EMD-{emd_id})'
-                else:
-                    emd_id_bad = emd_id
-                    from random import choice
-                    emd_id = choice(emdb_ids)
-                    st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
-            elif input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
-                url = input_txt
-                image = get_image(url, invert_contrast=0, rgb2gray=True, output_shape=(ctfs[0].imagesize*ctfs[0].over_sample, ctfs[0].imagesize*ctfs[0].over_sample))
+                        emd_id_bad = emd_id
+                        from random import choice
+                        emd_id = choice(emdb_ids)
+                        st.warning(f"EMD-{emd_id_bad} does not exist. Please input a valid id (for example, a randomly selected valid id {emd_id})")
+                elif input_txt.startswith("http") or input_txt.startswith("ftp"):   # input is a url
+                    url = input_txt
+                    image = get_image(url, invert_contrast=0, rgb2gray=True, output_shape=(ctfs[0].imagesize*ctfs[0].over_sample, ctfs[0].imagesize*ctfs[0].over_sample))
+                    if image is not None:
+                        image = image[::-1, :]
+                        link = f'[Image Link]({url})'
+                    else:
+                        st.warning(f"{url} is not a valid image link")
+                elif len(input_txt):
+                    st.warning(f"{input_txt} is not a valid image link")
                 if image is not None:
-                    image = image[::-1, :]
-                    link = f'[Image Link]({url})'
-                else:
-                    st.warning(f"{url} is not a valid image link")
-            elif len(input_txt):
-                st.warning(f"{input_txt} is not a valid image link")
-            if image is not None:
-                import_with_auto_install(["skimage:scikit_image"])
-                if link: st.markdown(link, unsafe_allow_html=True)
-                image = normalize(image)
-                fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
-                st.bokeh_chart(fig2d, use_container_width=True)
-                del fig2d
-
-                fig2ds = []
-                for i in range(n):
-                    _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False)
-                    from skimage.transform import resize
-                    image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
-                    image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
-                    if n>1:
-                        title = f"{i+1} - {ctfs[i].ctf_type} Applied"
-                    else:
-                        title = f"{ctfs[i].ctf_type} Applied"
-                    fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
-                    fig2ds.append(fig2d)
-                    del ctf_2d, image2, image_work
-                del image
-                if len(fig2ds)>1:
-                    from bokeh.models import CrosshairTool
-                    crosshair = CrosshairTool(dimensions="both")
-                    crosshair.line_color = 'red'
-                    for fig in fig2ds: fig.add_tools(crosshair)
-                    from bokeh.layouts import gridplot
-                    figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
-                    st.bokeh_chart(figs_grid, use_container_width=True)
-                    del figs_grid
-                else:
+                    import_with_auto_install(["skimage:scikit_image"])
+                    if link: st.markdown(link, unsafe_allow_html=True)
+                    image = normalize(image)
+                    fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
                     st.bokeh_chart(fig2d, use_container_width=True)
                     del fig2d
+
+                    fig2ds = []
+                    for i in range(n):
+                        _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False)
+                        from skimage.transform import resize
+                        image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
+                        image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
+                        if n>1:
+                            title = f"{i+1} - {ctfs[i].ctf_type} Applied"
+                        else:
+                            title = f"{ctfs[i].ctf_type} Applied"
+                        fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
+                        fig2ds.append(fig2d)
+                        del ctf_2d, image2, image_work
+                    del image
+                    if len(fig2ds)>1:
+                        from bokeh.models import CrosshairTool
+                        crosshair = CrosshairTool(dimensions="both")
+                        crosshair.line_color = 'red'
+                        for fig in fig2ds: fig.add_tools(crosshair)
+                        from bokeh.layouts import gridplot
+                        figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
+                        st.bokeh_chart(figs_grid, use_container_width=True)
+                        del figs_grid
+                    else:
+                        st.bokeh_chart(fig2d, use_container_width=True)
+                        del fig2d
 
     with col_info:
         if not embed:
@@ -586,16 +595,18 @@ def set_query_parameters(ctfs):
         d["show_psf"] = 1
     if state.show_2d:
         d["show_2d"] = 1
-        if state.input_mode == "URL":
-            d["url"] = state.url
-        else:
-            d["input_mode"] = state.input_mode
-            if state.input_mode == "Pattern":
-                if state.pattern != "Delta Function":
-                    d["pattern"] = state.pattern
-            elif state.input_mode == "EMDB ID":
-                d["emd_id"] = state.emd_id
-    if state.plot_s2: d["plot_s2"] = 1
+        if state.simulate_ctf_effect:
+            d["simulate_ctf_effect"] = 1
+            if state.input_mode == "URL":
+                d["url"] = state.url
+            else:
+                d["input_mode"] = state.input_mode
+                if state.input_mode == "Pattern":
+                    if state.pattern != "Delta Function":
+                        d["pattern"] = state.pattern
+                elif state.input_mode == "EMDB ID":
+                    d["emd_id"] = state.emd_id
+    if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
     default_vals = CTF().get_dict()
     for attr in default_vals.keys():
         if attr == "ctf_type":
@@ -629,7 +640,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_psf plot_s2".split()
+    int_types = "show_1d show_2d show_psf plot_s2 simulate_ctf_effect".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
