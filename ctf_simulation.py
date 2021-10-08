@@ -590,7 +590,7 @@ def set_query_parameters(ctfs):
     state = st.session_state
     d = {}
     if state.show_1d:
-        if state.rotavg:
+        if "rotavg" in state and state.rotavg:
             d["rotavg"] = 1
         if state.show_psf:
             d["show_psf"] = 1
