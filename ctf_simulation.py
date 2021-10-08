@@ -97,7 +97,7 @@ def main():
                     st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
                     if n==1 and ctfs[i].dfdiff:
                         value = ctfs[i].ctf_type == 2
-                        rotavg = st.checkbox(label='plot rotational average', value=value)
+                        rotavg = st.checkbox(label='plot rotational average', value=value, key="rotavg")
                     else:
                         rotavg = False
                     st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
@@ -589,10 +589,13 @@ def get_ctfs_from_session_state():
 def set_query_parameters(ctfs):
     state = st.session_state
     d = {}
-    if not state.show_1d:
+    if state.show_1d:
+        if state.rotavg:
+            d["rotavg"] = 1
+        if state.show_psf:
+            d["show_psf"] = 1
+    else:
         d["show_1d"] = 0
-    elif state.show_psf:
-        d["show_psf"] = 1
     if state.show_2d:
         d["show_2d"] = 1
         if state.simulate_ctf_effect:
@@ -640,7 +643,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_psf plot_s2 simulate_ctf_effect".split()
+    int_types = "show_1d show_2d show_psf plot_s2 rotavg simulate_ctf_effect".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
