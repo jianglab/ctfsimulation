@@ -90,11 +90,11 @@ def main():
                 if not embed:
                     options = ('CTF', '|CTF|', 'CTF^2')
                     st.radio(label='CTF type', options=options, index=0, key=f"ctf_type_{i}")
-                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], min_value=0.0, step=0.1, format="%.5g", key=f"defocus_{i}")
+                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], min_value=0.0, step=0.1, format="%.5g", help=f"Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
                 if embed:
                     rotavg = False
                 else:
-                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", key=f"dfdiff_{i}")
+                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help="maximal defocus - minimal defocus", key=f"dfdiff_{i}")
                     if n==1 and ctfs[i].dfdiff:
                         value = ctfs[i].ctf_type == 2
                         rotavg = st.checkbox(label='plot rotational average', value=value, key="rotavg")
@@ -729,6 +729,15 @@ class CTF:
         ret.update(self.__dict__)
         return ret
 
+    def wave_length(self):
+        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        return wl
+
+    def scherzer_defocus(self, extended=True):
+        f = np.sqrt(self.cs*1e3 * self.wave_length()*1e-4 ) # micrometer
+        if extended: f *= np.sqrt(4./3.)
+        return f
+
     #@st.cache(persist=True, show_spinner=False)
     def ctf1d(self, plot_s2=False, defocus_override=None):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
@@ -741,7 +750,7 @@ class CTF:
             ds = s_nyquist/(self.imagesize//2*self.over_sample)
             s = np.arange(self.imagesize//2*self.over_sample+1, dtype=np.float32)*ds
             s2 = s*s
-        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        wl = self.wave_length()  # Angstrom
         phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
         gamma =2*np.pi*(-0.5*defocus_final*1e4*wl*s2 + .25*self.cs*1e7*wl**3*s2**2) - phaseshift
         
@@ -767,7 +776,7 @@ class CTF:
         ds = s_nyquist/(self.imagesize//2)
         s = (np.arange(self.imagesize, dtype=np.float32) - self.imagesize//2)*ds
         s2 = s*s
-        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        wl = self.wave_length()  # Angstrom
         phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
         gamma =2*np.pi*(-0.5*defocus_final*1e4*wl*s2 + .25*self.cs*1e7*wl**3*s2**2) - phaseshift
         
@@ -818,7 +827,7 @@ class CTF:
 
         defocus2d = self.defocus + self.dfdiff/2*np.cos( 2*(theta-self.dfang*np.pi/180.))
 
-        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        wl = self.wave_length()  # Angstrom
         phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
 
         gamma =2*np.pi*(-0.5*defocus2d*1e4*wl*s2 + .25*self.cs*1e7*wl**3*s2**2) - phaseshift
