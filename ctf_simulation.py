@@ -46,6 +46,7 @@ import numpy as np
 def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
+    st.title(title)
 
     session_state = st.session_state
     if "defocus_0" not in session_state:  # only run once at the start of the session
@@ -56,13 +57,11 @@ def main():
     ctfs = get_ctfs_from_session_state()
 
     if embed:
-        col1, col2 = st.columns((1, 5))
-        col_info = col2
+        col_params, col_1d = st.columns((1, 5))
     else:
-        st.title(title)
-        col1 = st.sidebar
+        col_params = st.sidebar
 
-    with col1:
+    with col_params:
         if embed:
             n = 1
         else:
@@ -146,6 +145,9 @@ def main():
             if show_2d:
                 value = int(st.session_state.get("simulate_ctf_effect", 0))
                 simulate_ctf_effect = st.checkbox('Simulate CTF effect on images', value=value, key="simulate_ctf_effect")
+                if simulate_ctf_effect:
+                    simulate_ctf_effect_container = st.container()
+                show_2d_right = st.checkbox("Show 2D CTF/images on the right", value=False, key="show_2d_right")
 
             if show_1d or show_2d:
                 value = int(st.session_state.get("plot_s2", 0))
@@ -159,18 +161,14 @@ def main():
     ctf_labels = ctf_varying_parameter_labels(ctfs)
 
     if not embed:
-        if show_1d:
-            if show_2d:
-                col2, col3 = st.columns((5, 2))
-            else:
-                col2, col3 = st.columns((1, 0.01))
-            col_info = col2
+        if show_2d and show_2d_right:
+            col_1d, col_2d = st.columns((5, 2))
         else:
-            col2, col3 = st.columns((0.01, 1))
-            col_info = col3
+            col_1d, _ = st.columns((1, 0.01))
+            col_2d = col_1d
 
     if show_1d:
-        with col2:
+        with col_1d:
             from bokeh.plotting import figure
             from bokeh.models import LegendItem
             if plot_s2:
@@ -300,26 +298,10 @@ def main():
                         fig.js_on_event(DoubleTap, toggle_legend_js)
                     st.text("") # workaround for a layout bug in streamlit 
                     st.bokeh_chart(fig, use_container_width=True)
-                    del fig
-
-                if show_data:
-                    import pandas as pd
-                    for i, (col3_label, s, x, ctf) in enumerate(raw_data):
-                        columns = [x_label, "Res (Å)", col3_label]
-                        maxlen = max(map(len, columns))
-                        columns = [col.rjust(maxlen+10) for col in columns]
-                        data = np.zeros((len(x), 3))
-                        data[:,0] = x
-                        s[0] = 1e-6 # avoid divsion by zero warning
-                        data[:,1] = 1./s
-                        data[:,2] = ctf
-                        df = pd.DataFrame(data, columns=columns)
-                        st.dataframe(df, width=None)
-                        label = f"Download the data - {col3_label}"
-                        st.markdown(get_table_download_link(df, label=label), unsafe_allow_html=True)
+                    del fig                
 
     if show_2d and not embed:
-        with col3:
+        with col_2d:
             st.text("") # workaround for a layout bug in streamlit 
 
             show_color = False
@@ -349,42 +331,43 @@ def main():
                 del fig2d
             
             if simulate_ctf_effect:
-                with st.expander("Simulate the CTF effect"):
-                    input_modes = ["Pattern"]
-                    emdb_ids = get_emdb_ids()
-                    input_modes += ["EMDB ID"]
-                    if "emd_id" not in session_state:
-                        import random
-                        session_state.emd_id = random.choice(emdb_ids)
-                    input_modes += ["URL"]
-                    input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
-                    if input_mode == "Pattern":
-                        mapping = \
-                            {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
-                                "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
-                                "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
-                            }
-                        pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()), key="pattern")
-                        if pattern_option not in ["Delta Function"]:
-                            input_txt = mapping[pattern_option]
-                    elif input_mode == "EMDB ID":
-                        do_random_embid = st.checkbox("Choose a random EMDB ID", value=False)
-                        if do_random_embid:
-                            help = "Randomly select another EMDB ID"
-                            button_clicked = st.button(label="Change EMDB ID", help=help)
-                            if button_clicked:
-                                import random
-                                session_state.emd_id = random.choice(emdb_ids)
-                            input_txt = f"EMD-{session_state.emd_id}"
-                        else:
-                            label = "Input an EMDB ID"
-                            value = f"EMD-{session_state.emd_id}"
-                            input_txt = st.text_input(label=label, value=value).strip()
-                            session_state.emd_id = input_txt.lower().split("emd_")[-1]
-                    elif input_mode == "URL":
-                        label = "Input an image url:"
-                        value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
-                        input_txt = st.text_input(label=label, value=value, key="url").strip()
+                with simulate_ctf_effect_container:
+                    with st.expander("Specify a simulation image", expanded=False):
+                        input_modes = ["Pattern"]
+                        emdb_ids = get_emdb_ids()
+                        input_modes += ["EMDB ID"]
+                        if "emd_id" not in session_state:
+                            import random
+                            session_state.emd_id = random.choice(emdb_ids)
+                        input_modes += ["URL"]
+                        input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
+                        if input_mode == "Pattern":
+                            mapping = \
+                                {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
+                                    "TV Test Signal" : "https://cdn4.vectorstock.com/images/1000x1000/67/43/1946743.jpg?download=1", \
+                                    "Spiral Rainbow Sqaures" : "http://www.ulrichmutze.de/cpmgraphics/testpattern.jpg"
+                                }
+                            pattern_option = st.selectbox('Select a geometric pattern', options=["Delta Function"] + list(mapping.keys()), key="pattern")
+                            if pattern_option not in ["Delta Function"]:
+                                input_txt = mapping[pattern_option]
+                        elif input_mode == "EMDB ID":
+                            do_random_embid = st.checkbox("Choose a random EMDB ID", value=False)
+                            if do_random_embid:
+                                help = "Randomly select another EMDB ID"
+                                button_clicked = st.button(label="Change EMDB ID", help=help)
+                                if button_clicked:
+                                    import random
+                                    session_state.emd_id = random.choice(emdb_ids)
+                                input_txt = f"EMD-{session_state.emd_id}"
+                            else:
+                                label = "Input an EMDB ID"
+                                value = f"EMD-{session_state.emd_id}"
+                                input_txt = st.text_input(label=label, value=value).strip()
+                                session_state.emd_id = input_txt.lower().split("emd_")[-1]
+                        elif input_mode == "URL":
+                            label = "Input an image url:"
+                            value = "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg"
+                            input_txt = st.text_input(label=label, value=value, key="url").strip()
                 
                 image = None
                 link = None
@@ -414,13 +397,15 @@ def main():
                         st.warning(f"{url} is not a valid image link")
                 elif len(input_txt):
                     st.warning(f"{input_txt} is not a valid image link")
+                
                 if image is not None:
+                    st.text("") # workaround for a layout bug in streamlit 
                     import_with_auto_install(["skimage:scikit_image"])
-                    if link: st.markdown(link, unsafe_allow_html=True)
                     image = normalize(image)
                     fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
                     st.bokeh_chart(fig2d, use_container_width=True)
                     del fig2d
+                    if link: st.markdown(link, unsafe_allow_html=True)
 
                     fig2ds = []
                     for i in range(n):
@@ -448,11 +433,26 @@ def main():
                     else:
                         st.bokeh_chart(fig2d, use_container_width=True)
                         del fig2d
+    
+    if not embed and show_1d and show_data:
+        with col_1d:
+            import pandas as pd
+            for i, (col3_label, s, x, ctf) in enumerate(raw_data):
+                columns = [x_label, "Res (Å)", col3_label]
+                maxlen = max(map(len, columns))
+                columns = [col.rjust(maxlen+10) for col in columns]
+                data = np.zeros((len(x), 3))
+                data[:,0] = x
+                s[0] = 1e-6 # avoid divsion by zero warning
+                data[:,1] = 1./s
+                data[:,2] = ctf
+                df = pd.DataFrame(data, columns=columns)
+                st.dataframe(df, width=None)
+                label = f"Download the data - {col3_label}"
+                st.markdown(get_table_download_link(df, label=label), unsafe_allow_html=True)
 
-    with col_info:
         if not embed:
             st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
-
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctf-simulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
     hide_streamlit_style = """
@@ -598,6 +598,8 @@ def set_query_parameters(ctfs):
         d["show_1d"] = 0
     if state.show_2d:
         d["show_2d"] = 1
+        if state.show_2d_right:
+            d["show_2d_right"] = 1
         if state.simulate_ctf_effect:
             d["simulate_ctf_effect"] = 1
             if state.input_mode == "URL":
@@ -643,7 +645,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_psf plot_s2 rotavg simulate_ctf_effect".split()
+    int_types = "show_1d show_2d show_2d_right show_psf plot_s2 rotavg simulate_ctf_effect".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
