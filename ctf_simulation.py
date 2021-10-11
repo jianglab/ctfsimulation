@@ -155,7 +155,7 @@ def main():
             else:
                 plot_s2 = False
                       
-            share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots")
+            share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots", key="share_url")
 
     ctfs = get_ctfs_from_session_state()
     ctf_labels = ctf_varying_parameter_labels(ctfs)
@@ -614,6 +614,7 @@ def set_query_parameters(ctfs):
                 elif state.input_mode == "EMDB ID":
                     d["emd_id"] = state.emd_id
     if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
+    if "share_url" in state and state.share_url: d["share_url"] = 1
     default_vals = CTF().get_dict()
     for attr in default_vals.keys():
         if attr == "ctf_type":
@@ -647,7 +648,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 rotavg simulate_ctf_effect".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
