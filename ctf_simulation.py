@@ -148,6 +148,8 @@ def main():
                 if simulate_ctf_effect:
                     simulate_ctf_effect_container = st.container()
                 show_2d_right = st.checkbox("Show 2D CTF/images on the right", value=False, key="show_2d_right")
+                if show_2d_right:
+                    plot_width = st.number_input("Plot width (fraction of screen width)", value=0.6, min_value=0.1, max_value=0.99, key="plot_width")
 
             if show_1d or show_2d:
                 value = int(st.session_state.get("plot_s2", 0))
@@ -162,7 +164,7 @@ def main():
 
     if not embed:
         if show_2d and show_2d_right:
-            col_1d, col_2d = st.columns((5, 2))
+            col_1d, col_2d = st.columns((max(0.01, plot_width), max(0.01, 1-plot_width)))
         else:
             col_1d, _ = st.columns((1, 0.01))
             col_2d = col_1d
@@ -602,6 +604,7 @@ def set_query_parameters(ctfs):
         d["show_2d"] = 1
         if state.show_2d_right:
             d["show_2d_right"] = 1
+            d["plot_width"] = st.session_state.plot_width
         if state.simulate_ctf_effect:
             d["simulate_ctf_effect"] = 1
             if state.input_mode == "URL":
@@ -649,12 +652,15 @@ def parse_query_parameters():
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
     int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect".split()
+    float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
             st.session_state.embed = "embed" in query_params and query_params["embed"][0]!='0'
         elif attr in int_types:
             st.session_state[attr] = int(query_params[attr][0])
+        elif attr in float_types:
+            st.session_state[attr] = float(query_params[attr][0])
         else:
             st.session_state[attr] = query_params[attr][0]
     if "embed" not in st.session_state:
