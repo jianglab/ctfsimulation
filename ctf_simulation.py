@@ -199,7 +199,7 @@ def main():
                 label0 = ctf_labels[i]
                 color = colors[ i % len(colors) ]
                 if n==1 and ctfs[i].dfdiff:
-                    defocuses = [ctfs[i].defocus - ctfs[i].dfdiff, ctfs[i].defocus, ctfs[i].defocus + ctfs[i].dfdiff]
+                    defocuses = [ctfs[i].defocus - ctfs[i].dfdiff/2, ctfs[i].defocus, ctfs[i].defocus + ctfs[i].dfdiff/2]
                 else:
                     defocuses = [ctfs[i].defocus]
                 for di, defocus in enumerate(defocuses):
