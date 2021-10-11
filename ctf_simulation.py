@@ -594,6 +594,8 @@ def set_query_parameters(ctfs):
             d["rotavg"] = 1
         if state.show_psf:
             d["show_psf"] = 1
+        if state.show_data:
+            d["show_data"] = 1
     else:
         d["show_1d"] = 0
     if state.show_2d:
@@ -645,7 +647,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf plot_s2 rotavg simulate_ctf_effect".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 rotavg simulate_ctf_effect".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
