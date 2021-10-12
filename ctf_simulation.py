@@ -79,6 +79,7 @@ def main():
         st.markdown('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
 
         show_marker_empties = []
+        ctf_intact_first_peak_empties = []
         for i in range(n):
             if n>1:
                 expander = st.expander(label=f"CTF {i+1}", expanded=True if i==n-1 else False)
@@ -120,6 +121,7 @@ def main():
                     st.number_input('sample horizontal motion (Å)', value=st.session_state[f"dXY_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
 
                 show_marker_empties.append(st.empty())
+                ctf_intact_first_peak_empties.append(st.empty())
 
         if embed:
             show_1d = True
@@ -138,6 +140,7 @@ def main():
                 show_psf = st.checkbox('Show point spread function', value=value, key="show_psf")
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
+                    ctf_intact_first_peak_empties[i].checkbox(label='Ignore CTFs until first peak?', help="Illustrate the meaning of Relion option 'Ignore CTFs until first peak?'", key=f"ctf_intact_first_peak_{i}")
                 show_data = st.checkbox('Show CTF raw data', value=False, key="show_data")
             else:
                 show_psf = False
@@ -575,7 +578,7 @@ def get_ctfs_from_session_state():
         attr, i = k.rsplit("_", maxsplit=1)
         if attr in d:
             i = int(i)
-            if attr in ["imagesize", "over_sample", "show_marker"]:
+            if attr in ["imagesize", "over_sample", "show_marker", "ctf_intact_first_peak"]:
                 attrs.append( (i, attr, int(st.session_state[k])) )
             else:
                 attrs.append( (i, attr, st.session_state[k]) )
@@ -670,7 +673,7 @@ def parse_query_parameters():
 
 def ctf_varying_parameter_labels(ctfs):
     str_types = ["ctf_type"]
-    int_types = ["imagesize", "over_sample", "show_marker"]
+    int_types = ["imagesize", "over_sample", "show_marker", "ctf_intact_first_peak"]
     ret = []
     attrs = ctf_varying_parameters(ctfs)
     if attrs:
@@ -691,7 +694,7 @@ def ctf_varying_parameter_labels(ctfs):
 
 def ctf_varying_parameters(ctfs):
     if len(ctfs)<2: return []
-    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix imagesize over_sample ctf_type show_marker".split()
+    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
     ret = []
     for attr in attrs:
         vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
@@ -705,7 +708,7 @@ def ctf_varying_parameters(ctfs):
     return ret
 
 class CTF:
-    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0):
+    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0, ctf_intact_first_peak=0):
         self.voltage = voltage
         self.cs = cs
         self.ampcontrast = ampcontrast
@@ -725,6 +728,8 @@ class CTF:
         self.over_sample = int(over_sample)
         self.ctf_type = ctf_type    # CTF, |CTF|, CTF^2
         self.show_marker = int(show_marker)
+        self.ctf_intact_first_peak = int(ctf_intact_first_peak)
+
     
     def __str__(self):
         return str(self.get_dict())
@@ -744,6 +749,18 @@ class CTF:
     def wave_length(self):
         wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
         return wl
+
+    def s_at_1st_peak(self, defocus_final=None):
+        wl = self.wave_length()  # Angstrom
+        phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
+        defocus = self.defocus if defocus_final is None else defocus_final
+        # a*x^2 + b*x + c = 0
+        a = 2*np.pi*.25*self.cs*1e7*wl**3
+        b = 2*np.pi*(-0.5*defocus*1e4*wl)
+        c = - phaseshift + np.pi/2
+        s2 = (-b - np.sqrt(b*b-4*a*c))/(2*a)
+        s = np.sqrt(s2)
+        return s
 
     def scherzer_defocus(self, extended=True):
         f = np.sqrt(self.cs*1e3 * self.wave_length()*1e-4 ) # micrometer
@@ -775,7 +792,12 @@ class CTF:
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
-        ctf = np.sin(gamma) * env
+        ctf = np.sin(gamma)
+        if self.ctf_intact_first_peak:
+            s_peak = self.s_at_1st_peak(defocus_final=defocus_final)
+            mask = np.where(s<=s_peak)
+            ctf[mask] = -1
+        ctf *= env
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
         elif self.ctf_type == "|CTF|": ctf = np.abs(ctf)
 
