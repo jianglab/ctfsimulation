@@ -564,11 +564,14 @@ def set_session_state_from_ctfs(ctfs, remove_extra_keys=True):
             if attr_i not in st.session_state:
                 st.session_state[attr_i] = d[attr]
     if remove_extra_keys:
-        for k in st.session_state:
-            if k.rfind("_")==-1: continue
-            attr, i = k.rsplit("_", maxsplit=1)
-            if attr in d and int(i)>=n:
-                del st.session_state[k]
+        try:
+            for k in st.session_state:
+                if k.rfind("_")==-1: continue
+                attr, i = k.rsplit("_", maxsplit=1)
+                if attr in d and int(i)>=n:
+                    del st.session_state[k]
+        except:
+            pass
 
 def get_ctfs_from_session_state():
     d = CTF().get_dict()
@@ -828,7 +831,7 @@ class CTF:
         elif self.ctf_type== "|CTF|": ctf = np.abs(ctf)
 
         unity = np.ones((self.imagesize,), dtype=np.complex64)
-        psf = np.abs( np.fft.ifft( unity * np.fft.ifftshift(ctf) ) )
+        psf = np.real( np.fft.ifft( unity * np.fft.ifftshift(ctf) ) )
         psf = np.fft.fftshift(psf)
         psf /= np.linalg.norm(psf, ord=2)
         x = (np.arange(self.imagesize)-self.imagesize//2) * self.apix
