@@ -91,7 +91,7 @@ def main():
                 if not embed:
                     options = ('CTF', '|CTF|', 'CTF^2')
                     st.radio(label='CTF type', options=options, index=0, key=f"ctf_type_{i}")
-                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], min_value=0.0, step=0.1, format="%.5g", help=f"Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
+                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"Positive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
                 if embed:
                     rotavg = False
                 else:
@@ -106,14 +106,14 @@ def main():
                 st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", key=f"apix_{i}")
                 apix_wrong_empties.append(st.empty())
                 st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", key=f"voltage_{i}")
-                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=0.0, step=0.1, format="%g", key=f"cs_{i}")
+                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", key=f"cs_{i}")
                 st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
                 if not embed:
                     st.number_input('image size (pixel)', value=int(st.session_state[f"imagesize_{i}"]), min_value=16, max_value=4096, step=4, key=f"imagesize_{i}")
                     st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, key=f"over_sample_{i}")
                 
                     #with st.expander("envelope functions", expanded=False):
-                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}")
+                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}", help="exp(-B*s*s/4)")
                     st.number_input('beam convergence semi-angle (mrad)', value=st.session_state[f"alpha_{i}"], min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
                     dE = st.number_input('energy spread (eV)', value=st.session_state[f"dE_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
                     dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
@@ -143,7 +143,7 @@ def main():
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
                     ctf_intact_first_peak_empties[i].checkbox(label='Ignore CTFs until first peak?', help="Illustrate the meaning of Relion option 'Ignore CTFs until first peak?'", key=f"ctf_intact_first_peak_{i}")
-                simulate_wrong_apix = st.checkbox('Simulate effect of wrong pixel size', value=value, key="simulate_wrong_apix")
+                simulate_wrong_apix = st.checkbox('Simulate effect of wrong pixel size', value=value, key="simulate_wrong_apix", help="while TEM magnification is highly reproducible, the absolute magnification is often insufficiently calibrated and it is not uncommon to have 1-2% errors. This option will allow you to simulate the effect of inaccurate magnification (and the pixel size based on the magnification) on CTF fitting: small pixel size errors can be sufficiently compensated by defocus but perfect compensation can only be achieved by changing both defocus and cs")
                 if simulate_wrong_apix:
                     for i in range(n):
                         apix_wrong_empties[i].number_input('wrong pixel size (Å/pixel)', value=st.session_state[f"apix_wrong_{i}"], min_value=0.0, step=0.01, format="%g", key=f"apix_wrong_{i}", help="if a wrong pixel size is used, the CTF curve can still be perfectedly fitted with another set of defocus and cs values: df*(apix_correct/apix_wrong)^2, cs*(apix_correct/apix_wrong)^4")
@@ -214,7 +214,7 @@ def main():
                 else:
                     defocuses = [ctfs[i].defocus]
                 for di, defocus in enumerate(defocuses):
-                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus)
+                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus, use_apix_wrong=simulate_wrong_apix)
                     x = s2 if plot_s2 else s
                     res = np.hstack(([1e6],  1/s[1:]))
                     source = dict(x=x, res=res, y=ctf)
@@ -252,8 +252,12 @@ def main():
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
-            fig.y_range.start = -1 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
-            fig.y_range.end = 1
+            if len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
+                fig.y_range.start = -1.05 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
+                fig.y_range.end = 1.05
+            else:
+                fig.y_range.start = -1.0 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
+                fig.y_range.end = 1.0
             if len(legends)>1:
                 from bokeh.models import Legend
                 legend = Legend(items=legends, location="top_center", spacing=10, orientation="horizontal")
@@ -272,6 +276,9 @@ def main():
                 fig.js_on_event(DoubleTap, toggle_legend_js)
             st.bokeh_chart(fig, use_container_width=True)
             del fig
+
+            if len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
+                st.write("[Relion source code implementing \"Ignore CTFs until first peak\"](https://github.com/3dem/relion/blob/dcab7933398a8b728e56a08ea1bb2539a5ba71d4/src/ctf.h#L204)")
 
             if not embed:
                 if show_psf:
@@ -780,7 +787,7 @@ class CTF:
         return f
 
     #@st.cache(persist=True, show_spinner=False)
-    def ctf1d(self, plot_s2=False, defocus_override=None):
+    def ctf1d(self, plot_s2=False, defocus_override=None, use_apix_wrong=False):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*self.apix)
         if plot_s2:
@@ -813,7 +820,7 @@ class CTF:
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
         elif self.ctf_type == "|CTF|": ctf = np.abs(ctf)
 
-        if self.apix_wrong > 0 and self.apix_wrong != self.apix:
+        if use_apix_wrong and self.apix_wrong > 0 and self.apix_wrong != self.apix:
             s *= self.apix/self.apix_wrong
             s2*= (self.apix/self.apix_wrong)**2
         
