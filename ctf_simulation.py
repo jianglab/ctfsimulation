@@ -79,6 +79,7 @@ def main():
         st.markdown('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
 
         show_marker_empties = []
+        apix_wrong_empties = []
         ctf_intact_first_peak_empties = []
         for i in range(n):
             if n>1:
@@ -103,6 +104,7 @@ def main():
                     st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
                 st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"phaseshift_{i}")
                 st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", key=f"apix_{i}")
+                apix_wrong_empties.append(st.empty())
                 st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", key=f"voltage_{i}")
                 st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=0.0, step=0.1, format="%g", key=f"cs_{i}")
                 st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
@@ -141,6 +143,10 @@ def main():
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
                     ctf_intact_first_peak_empties[i].checkbox(label='Ignore CTFs until first peak?', help="Illustrate the meaning of Relion option 'Ignore CTFs until first peak?'", key=f"ctf_intact_first_peak_{i}")
+                simulate_wrong_apix = st.checkbox('Simulate effect of wrong pixel size', value=value, key="simulate_wrong_apix")
+                if simulate_wrong_apix:
+                    for i in range(n):
+                        apix_wrong_empties[i].number_input('wrong pixel size (Å/pixel)', value=st.session_state[f"apix_wrong_{i}"], min_value=0.0, step=0.01, format="%g", key=f"apix_wrong_{i}", help="if a wrong pixel size is used, the CTF curve can still be perfectedly fitted with another set of defocus and cs values: df*(apix_correct/apix_wrong)^2, cs*(apix_correct/apix_wrong)^4")
                 show_data = st.checkbox('Show CTF raw data', value=False, key="show_data")
             else:
                 show_psf = False
@@ -605,6 +611,8 @@ def set_query_parameters(ctfs):
             d["show_psf"] = 1
         if state.show_data:
             d["show_data"] = 1
+        if state.simulate_wrong_apix:
+            d["simulate_wrong_apix"] = 1
     else:
         d["show_1d"] = 0
     if state.show_2d:
@@ -658,7 +666,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect simulate_wrong_apix".split()
     float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
@@ -697,7 +705,7 @@ def ctf_varying_parameter_labels(ctfs):
 
 def ctf_varying_parameters(ctfs):
     if len(ctfs)<2: return []
-    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
+    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix apix_wrong imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
     ret = []
     for attr in attrs:
         vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
@@ -711,7 +719,7 @@ def ctf_varying_parameters(ctfs):
     return ret
 
 class CTF:
-    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0, ctf_intact_first_peak=0):
+    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0, ctf_intact_first_peak=0, apix_wrong=0.0):
         self.voltage = voltage
         self.cs = cs
         self.ampcontrast = ampcontrast
@@ -727,6 +735,7 @@ class CTF:
         self.dZ = dZ
         self.dXY = dXY
         self.apix = apix
+        self.apix_wrong = apix_wrong if apix_wrong>0 else apix
         self.imagesize = int(imagesize)
         self.over_sample = int(over_sample)
         self.ctf_type = ctf_type    # CTF, |CTF|, CTF^2
@@ -804,6 +813,10 @@ class CTF:
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
         elif self.ctf_type == "|CTF|": ctf = np.abs(ctf)
 
+        if self.apix_wrong > 0 and self.apix_wrong != self.apix:
+            s *= self.apix/self.apix_wrong
+            s2*= (self.apix/self.apix_wrong)**2
+        
         return s, s2, ctf
 
     #@st.cache(persist=True, show_spinner=False)
