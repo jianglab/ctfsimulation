@@ -132,6 +132,7 @@ def main():
             plot_s2 = False
             show_data = False
             share_url = False
+            simulate_wrong_apix = False
         else:
             value = int(st.session_state.get("show_1d", 1))
             show_1d = st.checkbox('Show 1D CTF', value=value, key="show_1d")
