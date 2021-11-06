@@ -46,7 +46,6 @@ import numpy as np
 def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
-    st.title(title)
 
     session_state = st.session_state
     if "defocus_0" not in session_state:  # only run once at the start of the session
@@ -55,6 +54,7 @@ def main():
         set_session_state_from_ctfs(ctfs)
     embed = session_state.embed
     ctfs = get_ctfs_from_session_state()
+    st.title(session_state.title)
 
     if embed:
         col_params, col_1d = st.columns((1, 5))
@@ -329,10 +329,7 @@ def main():
             for i in range(n):
                 ds, ds2, ctf_2d = ctfs[i].ctf2d(plot_s2)
                 dxy = ds2 if plot_s2 else ds
-                if n>1:
-                    title = f"{i+1} - {ctfs[i].ctf_type}"
-                else:
-                    title = f"{ctfs[i].ctf_type}"
+                title = ctf_labels[i]
                 fig2d = generate_image_figure(ctf_2d, dxy, ctfs[i].ctf_type, title, plot_s2, show_color)
                 fig2ds.append(fig2d)
                 del ctf_2d
@@ -418,7 +415,7 @@ def main():
                     st.warning(f"{input_txt} is not a valid image link")
                 
                 if image is not None:
-                    st.text("") # workaround for a layout bug in streamlit 
+                    st.subheader("Simulated CTF effects on images")
                     import_with_auto_install(["skimage:scikit_image"])
                     image = normalize(image)
                     fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
@@ -432,10 +429,7 @@ def main():
                         from skimage.transform import resize
                         image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
                         image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
-                        if n>1:
-                            title = f"{i+1} - {ctfs[i].ctf_type} Applied"
-                        else:
-                            title = f"{ctfs[i].ctf_type} Applied"
+                        title = ctf_labels[i]
                         fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                         fig2ds.append(fig2d)
                         del ctf_2d, image2, image_work
@@ -472,7 +466,7 @@ def main():
 
     with col_1d:
         if not embed:
-            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [Getting Started in CryoEM, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [CryoEM Principles, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
+            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/1t8avQm3dNvU9ehnAwAfRUDwdONFMX2xpRut9NcosvwE)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctf-simulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
     hide_streamlit_style = """
@@ -640,6 +634,8 @@ def set_query_parameters(ctfs):
                 elif state.input_mode == "EMDB ID":
                     d["emd_id"] = state.emd_id
     if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
+    if "embed" in state and state.embed: d["embed"] = 1
+    if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
     if "share_url" in state and state.share_url: d["share_url"] = 1
     default_vals = CTF().get_dict()
     for attr in default_vals.keys():
@@ -680,6 +676,8 @@ def parse_query_parameters():
     for attr in other_attrs:
         if attr == "embed":
             st.session_state.embed = "embed" in query_params and query_params["embed"][0]!='0'
+        elif attr == "title":
+            st.session_state.title = query_params[attr][0]
         elif attr in int_types:
             st.session_state[attr] = int(query_params[attr][0])
         elif attr in float_types:
@@ -688,6 +686,8 @@ def parse_query_parameters():
             st.session_state[attr] = query_params[attr][0]
     if "embed" not in st.session_state:
         st.session_state.embed = 0
+    if st.session_state.embed or "title" not in st.session_state:
+        st.session_state.title = "CTF Simulation"
     return ctfs
 
 def ctf_varying_parameter_labels(ctfs):
@@ -708,7 +708,10 @@ def ctf_varying_parameter_labels(ctfs):
             s = '/'.join(tokens)
             ret.append(s)
     else:
-        ret = [f'{i+1}' for i in range(len(ctfs))]
+        if len(ctfs)>1:
+            ret = [f'{i+1}' for i in range(len(ctfs))]
+        else:
+            ret = [""]
     return ret
 
 def ctf_varying_parameters(ctfs):
