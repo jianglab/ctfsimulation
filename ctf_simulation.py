@@ -132,6 +132,7 @@ def main():
             plot_s2 = False
             show_data = False
             share_url = False
+            env_only = False
             simulate_wrong_apix = False
         else:
             value = int(st.session_state.get("show_1d", 1))
@@ -164,8 +165,10 @@ def main():
             if show_1d or show_2d:
                 value = int(st.session_state.get("plot_s2", 0))
                 plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value, key="plot_s2")
+                env_only = st.checkbox(label='Plot only envelope functions', value=value, key="env_only")
             else:
                 plot_s2 = False
+                env_only = False
                       
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots", key="share_url")
 
@@ -207,6 +210,8 @@ def main():
 
             legends = []
             raw_data = []
+            mins = []
+            maxs = []
             for i in range(n):
                 label0 = ctf_labels[i]
                 color = colors[ i % len(colors) ]
@@ -215,7 +220,9 @@ def main():
                 else:
                     defocuses = [ctfs[i].defocus]
                 for di, defocus in enumerate(defocuses):
-                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus, use_apix_wrong=simulate_wrong_apix)
+                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus, use_apix_wrong=simulate_wrong_apix, env_only=env_only)
+                    mins.append(np.min(ctf))
+                    maxs.append(np.max(ctf))
                     x = s2 if plot_s2 else s
                     res = np.hstack(([1e6],  1/s[1:]))
                     source = dict(x=x, res=res, y=ctf)
@@ -240,7 +247,7 @@ def main():
                         raw_data.append((label, s, x, ctf))
 
                 if n==1 and rotavg:
-                    _, _, ctf_2d = ctfs[i].ctf2d(plot_s2)
+                    _, _, ctf_2d = ctfs[i].ctf2d(plot_s2, env_only=env_only)
                     rad_profile = compute_radial_profile(ctf_2d)
                     x = s2 if plot_s2 else s
                     source = dict(x=x, res=1/s, y=rad_profile)
@@ -253,11 +260,11 @@ def main():
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
-            if len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
-                fig.y_range.start = -1.05 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
+            if not env_only and len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
+                fig.y_range.start = -1.05 if np.min(mins)<0 else 0
                 fig.y_range.end = 1.05
             else:
-                fig.y_range.start = -1.0 if "CTF" in [ctf.ctf_type for ctf in ctfs] else 0
+                fig.y_range.start = -1.0 if np.min(mins)<0 else 0
                 fig.y_range.end = 1.0
             if len(legends)>1:
                 from bokeh.models import Legend
@@ -292,7 +299,7 @@ def main():
                     fig.title.text_font_size = "18px"     
                     legends = []           
                     for i in range(n):
-                        x_psf, psf = ctfs[i].psf1d()
+                        x_psf, psf = ctfs[i].psf1d(defocus_override=defocus, env_only=env_only)
                         source = dict(x=x_psf, y=psf)
                         if n>1: source["defocus"] = [ctfs[i].defocus] * len(x_psf)
                         line = fig.line(x='x', y='y', source=source, line_width=2, color=colors[i%len(colors)])
@@ -327,7 +334,7 @@ def main():
 
             fig2ds = []
             for i in range(n):
-                ds, ds2, ctf_2d = ctfs[i].ctf2d(plot_s2)
+                ds, ds2, ctf_2d = ctfs[i].ctf2d(plot_s2, env_only=env_only)
                 dxy = ds2 if plot_s2 else ds
                 title = ctf_labels[i]
                 fig2d = generate_image_figure(ctf_2d, dxy, ctfs[i].ctf_type, title, plot_s2, show_color)
@@ -425,7 +432,7 @@ def main():
 
                     fig2ds = []
                     for i in range(n):
-                        _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False)
+                        _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False, env_only=env_only)
                         from skimage.transform import resize
                         image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
                         image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
@@ -606,6 +613,17 @@ def get_ctfs_from_session_state():
 def set_query_parameters(ctfs):
     state = st.session_state
     d = {}
+    default_vals = CTF().get_dict()
+    for attr in default_vals.keys():
+        if attr == "ctf_type":
+            vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
+            vals_set = set(vals)
+            if len(vals_set)>1 or list(vals_set)[0] != "CTF":
+                d[attr] = vals
+        else:
+            vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
+            if np.any(vals - default_vals[attr]):
+                d[attr] = vals
     if state.show_1d:
         if "rotavg" in state and state.rotavg:
             d["rotavg"] = 1
@@ -634,20 +652,10 @@ def set_query_parameters(ctfs):
                 elif state.input_mode == "EMDB ID":
                     d["emd_id"] = state.emd_id
     if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
+    if "env_only" in state and state.env_only: d["env_only"] = 1
     if "embed" in state and state.embed: d["embed"] = 1
-    if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
     if "share_url" in state and state.share_url: d["share_url"] = 1
-    default_vals = CTF().get_dict()
-    for attr in default_vals.keys():
-        if attr == "ctf_type":
-            vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
-            vals_set = set(vals)
-            if len(vals_set)>1 or list(vals_set)[0] != "CTF":
-                d[attr] = vals
-        else:
-            vals = np.array([getattr(ctfs[i], attr) for i in range(len(ctfs))])
-            if np.any(vals - default_vals[attr]):
-                d[attr] = vals
+    if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
     st.experimental_set_query_params(**d)
 
 def parse_query_parameters():
@@ -670,7 +678,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect simulate_wrong_apix".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
     float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
@@ -791,7 +799,7 @@ class CTF:
         return f
 
     #@st.cache(persist=True, show_spinner=False)
-    def ctf1d(self, plot_s2=False, defocus_override=None, use_apix_wrong=False):
+    def ctf1d(self, plot_s2=False, defocus_override=None, use_apix_wrong=False, env_only=False):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*self.apix)
         if plot_s2:
@@ -815,6 +823,9 @@ class CTF:
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
+        if env_only:
+            return s, s2, env
+
         ctf = np.sin(gamma)
         if self.ctf_intact_first_peak:
             s_peak = self.s_at_1st_peak(defocus_final=defocus_final)
@@ -831,7 +842,7 @@ class CTF:
         return s, s2, ctf
 
     #@st.cache(persist=True, show_spinner=False)
-    def psf1d(self, defocus_override=None):
+    def psf1d(self, defocus_override=None, env_only=False):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*self.apix)
         ds = s_nyquist/(self.imagesize//2)
@@ -850,7 +861,10 @@ class CTF:
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
 
-        ctf = np.sin(gamma) * env
+        if env_only:
+            ctf = env
+        else:
+            ctf = np.sin(gamma) * env
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
         elif self.ctf_type== "|CTF|": ctf = np.abs(ctf)
 
@@ -863,7 +877,7 @@ class CTF:
         return x, psf
 
     #@st.cache(persist=True, show_spinner=False)
-    def ctf2d(self, plot_s2=False):    
+    def ctf2d(self, plot_s2=False, env_only=False):    
         s_nyquist = 1./(2*self.apix)
         if plot_s2:
             ds = None
@@ -901,6 +915,9 @@ class CTF:
         if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
         if self.dXY: env *= sinc(np.pi*self.dXY*s)
+
+        if env_only:
+            return ds, ds2, env
 
         ctf = np.sin(gamma) * env
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
