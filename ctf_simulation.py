@@ -473,8 +473,8 @@ def main():
 
     with col_1d:
         if not embed:
-            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/1t8avQm3dNvU9ehnAwAfRUDwdONFMX2xpRut9NcosvwE)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
-        st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctf-simulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
+            st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/e/2PACX-1vTB-nZBdKVjEdDqV4DNxm7znY_dH4biyHieLNzi-i1I1kNJYgvjT72INbFpK9cUFTO95l8gKDynzGFx/pub?start=true&loop=true&delayms=3000)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
+        st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctfsimulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
     hide_streamlit_style = """
     <style>
