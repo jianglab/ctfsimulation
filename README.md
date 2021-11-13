@@ -8,5 +8,5 @@ Click one of these hosting links (<a href="https://share.streamlit.io/wjiang/ctf
 ---
 You can also embed the Web app into your own Website using an [iframe](https://www.w3schools.com/tags/tag_iframe.asp), for example using the following code
 ```html
-<iframe src="https://share.streamlit.io/wjiang/ctfsimulation/?embed=1" style='width: 100%; height: 740px; overflow: visible; margin: 0px; resize: both; border-style:none;'></iframe>
+<iframe src="https://share.streamlit.io/wjiang/ctfsimulation/master/?embed=1" style='width: 100%; height: 740px; overflow: visible; margin: 0px; resize: both; border-style:none;'></iframe>
 ```
