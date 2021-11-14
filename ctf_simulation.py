@@ -1072,9 +1072,9 @@ def qr_code(url=None, size = 8):
         _, host = is_hosted(return_host=True)
         if len(host)<1: return None
         if host == "streamlit":
-            url = "https://share.streamlit.io/wjiang/hi3d/main/"
+            url = "https://share.streamlit.io/wjiang/ctfsimulation/master/"
         elif host == "heroku":
-            url = "https://helical-indexing-hi3d.herokuapp.com/"
+            url = "https://ctfsimulation.herokuapp.com/"
         else:
             url = f"http://{host}:8501/"
         import urllib
