@@ -664,6 +664,7 @@ def set_query_parameters(ctfs):
     if "env_only" in state and state.env_only: d["env_only"] = 1
     if "embed" in state and state.embed: d["embed"] = 1
     if "share_url" in state and state.share_url: d["share_url"] = 1
+    if "show_qr" in state and state.show_qr: d["show_qr"] = 1
     if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
     st.experimental_set_query_params(**d)
 
@@ -687,7 +688,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
     float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
