@@ -132,6 +132,7 @@ def main():
             plot_s2 = False
             show_data = False
             share_url = False
+            show_qr = False
             env_only = False
             simulate_wrong_apix = False
         else:
@@ -171,6 +172,10 @@ def main():
                 env_only = False
                       
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots", key="share_url")
+            if share_url:
+                show_qr = st.checkbox('Show QR code of the URL', value=False, help="Display the QR code of the sharable URL", key="show_qr")
+            else:
+                show_qr = False
 
     ctfs = get_ctfs_from_session_state()
     ctf_labels = ctf_varying_parameter_labels(ctfs)
@@ -471,6 +476,15 @@ def main():
                 label = f"Download the data - {col3_label}"
                 st.markdown(get_table_download_link(df, label=label), unsafe_allow_html=True)
 
+    if share_url:
+        set_query_parameters(ctfs)
+        if show_qr:
+            with col_1d:
+                qr_image = qr_code()
+                st.image(qr_image)
+    else:
+        st.experimental_set_query_params()
+
     with col_1d:
         if not embed:
             st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/e/2PACX-1vTB-nZBdKVjEdDqV4DNxm7znY_dH4biyHieLNzi-i1I1kNJYgvjT72INbFpK9cUFTO95l8gKDynzGFx/pub?start=true&loop=true&delayms=3000)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
@@ -483,11 +497,6 @@ def main():
     </style>
     """
     st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
-
-    if share_url:
-        set_query_parameters(ctfs)
-    else:
-        st.experimental_set_query_params()
 
 def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color=False):
     w, h = image.shape
@@ -1028,6 +1037,54 @@ def setup_anonymous_usage_tracking():
             index_file.write_text(txt)
     except:
         pass
+
+def get_username():
+    from getpass import getuser
+    return getuser()
+
+def get_hostname():
+    import socket
+    fqdn = socket.getfqdn()
+    return fqdn
+
+def is_hosted(return_host=False):
+    hosted = False
+    host = ""
+    fqdn = get_hostname()
+    if fqdn.find("heroku")!=-1:
+        hosted = True
+        host = "heroku"
+    username = get_username()
+    if username.find("appuser")!=-1:
+        hosted = True
+        host = "streamlit"
+    if not host:
+        host = "localhost"
+    if return_host:
+        return hosted, host
+    else:
+        return hosted
+
+def qr_code(url=None, size = 8):
+    import_with_auto_install(["qrcode"])
+    import qrcode
+    if url is None: # ad hoc way before streamlit can return the url
+        _, host = is_hosted(return_host=True)
+        if len(host)<1: return None
+        if host == "streamlit":
+            url = "https://share.streamlit.io/wjiang/hi3d/main/"
+        elif host == "heroku":
+            url = "https://helical-indexing-hi3d.herokuapp.com/"
+        else:
+            url = f"http://{host}:8501/"
+        import urllib
+        params = st.experimental_get_query_params()
+        d = {k:params[k][0] for k in params}
+        url += "?" + urllib.parse.urlencode(d)
+    if not url: return None
+    img = qrcode.make(url)  # qrcode.image.pil.PilImage
+    data = np.array(img.convert("RGBA"))
+    return data
 
 def print_memory_usage():
     from inspect import currentframe
