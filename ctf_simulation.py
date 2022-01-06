@@ -166,6 +166,7 @@ def main():
             if show_1d or show_2d:
                 value = int(st.session_state.get("plot_s2", 0))
                 plot_s2 = st.checkbox(label='Plot s^2 as x-axis/radius', value=value, key="plot_s2")
+                value = int(st.session_state.get("env_only", 0))
                 env_only = st.checkbox(label='Plot only envelope functions', value=value, key="env_only")
             else:
                 plot_s2 = False
