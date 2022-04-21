@@ -129,6 +129,7 @@ def main():
             show_1d = True
             show_2d = False
             show_psf = False
+            show_avg = False
             plot_s2 = False
             show_data = False
             share_url = False
@@ -171,6 +172,11 @@ def main():
             else:
                 plot_s2 = False
                 env_only = False
+            if n>1:
+                value = int(st.session_state.get("show_avg", 0))
+                show_avg = st.checkbox('Plot average ctf', value=value, key="show_avg")
+            else:
+                show_avg = 0
                       
             share_url = st.checkbox('Show sharable URL', value=False, help="Include relevant parameters in the browser URL to allow you to share the URL and reproduce the plots", key="share_url")
             if share_url:
@@ -245,24 +251,44 @@ def main():
                     else:
                         label = label0
                     legends.append(LegendItem(label=label, renderers=[line]))
+                    if show_data or show_avg:
+                        raw_data.append((label, s, x, ctf))
                     if show_data:
                         if len(ctfs)>1 or len(defocuses)>1:
                             label = f"{y_label} ({label})"
                         else:
                             label = f"{y_label}"
-                        raw_data.append((label, s, x, ctf))
 
                 if n==1 and rotavg:
                     _, _, ctf_2d = ctfs[i].ctf2d(plot_s2, env_only=env_only)
                     rad_profile = compute_radial_profile(ctf_2d)
                     x = s2 if plot_s2 else s
                     source = dict(x=x, res=1/s, y=rad_profile)
-                    line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=2)
+                    source["ctf_type"] = ['rotavg'] * len(x)
+                    source["defocus"] = [f'mean={ctfs[0].defocus:g}'] * len(x)
+                    line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=line_width*2)
                     label = f"defocus={ctfs[i].defocus}/dfdiff={ctfs[i].dfdiff}-rotavg"
                     legends.append(LegendItem(label=label, renderers=[line]))
                     if show_data:
                         label = f"{y_label} ({label})"
                         raw_data.append((label, s, x, rad_profile))
+            
+            if n>1 and show_avg:
+                try:
+                    ctf_curves = np.vstack([raw_data[i][-1] for i in range(len(raw_data))])
+                    ctf_avg = np.mean(ctf_curves, axis=0)
+                    x = s2 if plot_s2 else s
+                    source = dict(x=x, res=1/s, y=ctf_avg)
+                    source["ctf_type"] = ['average'] * len(x)
+                    source["defocus"] = [f'mean={np.mean([ctf.defocus for ctf in ctfs]):g}'] * len(x)
+                    line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=line_width*2)
+                    label = f"average"
+                    legends.append(LegendItem(label=label, renderers=[line]))
+                    if show_data:
+                        label = f"{y_label} ({label})"
+                        raw_data.append((label, s, x, ctf_avg))
+                except:
+                    st.warning("Cannot show the average CTF. Make sure all CTF curves have the same 'image size' and 'over-sample' values")
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
@@ -662,6 +688,7 @@ def set_query_parameters(ctfs):
                 elif state.input_mode == "EMDB ID":
                     d["emd_id"] = state.emd_id
     if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
+    if "show_avg" in state and state.show_avg: d["show_avg"] = 1
     if "env_only" in state and state.env_only: d["env_only"] = 1
     if "embed" in state and state.embed: d["embed"] = 1
     if "share_url" in state and state.share_url: d["share_url"] = 1
@@ -689,7 +716,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
     float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
