@@ -174,7 +174,7 @@ def main():
                 env_only = False
             if n>1:
                 value = int(st.session_state.get("show_avg", 0))
-                show_avg = st.checkbox('Plot average ctf', value=value, key="show_avg")
+                show_avg = st.checkbox('Plot average CTF', value=value, key="show_avg")
             else:
                 show_avg = 0
                       
@@ -262,8 +262,7 @@ def main():
                 if n==1 and rotavg:
                     _, _, ctf_2d = ctfs[i].ctf2d(plot_s2, env_only=env_only)
                     rad_profile = compute_radial_profile(ctf_2d)
-                    x = s2 if plot_s2 else s
-                    source = dict(x=x, res=1/s, y=rad_profile)
+                    source = dict(x=x, res=res, y=rad_profile)
                     source["ctf_type"] = ['rotavg'] * len(x)
                     source["defocus"] = [f'mean={ctfs[0].defocus:g}'] * len(x)
                     line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=line_width*2)
@@ -274,11 +273,15 @@ def main():
                         raw_data.append((label, s, x, rad_profile))
             
             if n>1 and show_avg:
-                try:
+                bad_attrs_mapping = dict(imagesize="image size", over_sample="over-sample", ctf_type="CTF type")
+                attrs_diff = ctf_varying_parameters(ctfs)
+                bad_attrs_diff = [f"'{bad_attrs_mapping[attr]}'" for attr in attrs_diff if attr in bad_attrs_mapping]
+                if bad_attrs_diff:
+                    st.warning(f"Cannot show the average CTF. Make sure all CTF curves have the same {', '.join(bad_attrs_diff)} values")
+                else:
                     ctf_curves = np.vstack([raw_data[i][-1] for i in range(len(raw_data))])
                     ctf_avg = np.mean(ctf_curves, axis=0)
-                    x = s2 if plot_s2 else s
-                    source = dict(x=x, res=1/s, y=ctf_avg)
+                    source = dict(x=x, res=res, y=ctf_avg)
                     source["ctf_type"] = ['average'] * len(x)
                     source["defocus"] = [f'mean={np.mean([ctf.defocus for ctf in ctfs]):g}'] * len(x)
                     line = fig.line(x='x', y='y', source=source, color='red', line_dash="solid", line_width=line_width*2)
@@ -287,8 +290,6 @@ def main():
                     if show_data:
                         label = f"{y_label} ({label})"
                         raw_data.append((label, s, x, ctf_avg))
-                except:
-                    st.warning("Cannot show the average CTF. Make sure all CTF curves have the same 'image size' and 'over-sample' values")
 
             fig.x_range.start = 0
             fig.x_range.end = source['x'][-1]
@@ -977,7 +978,7 @@ def compute_radial_profile(image):
 
     coords = np.vstack((y_grid.flatten(), x_grid.flatten()))
 
-    from scipy.ndimage.interpolation import map_coordinates
+    from scipy.ndimage import map_coordinates
     polar = map_coordinates(image, coords, order=1).reshape(r_grid.shape)
 
     rad_profile = polar.mean(axis=0)
