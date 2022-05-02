@@ -80,6 +80,7 @@ def main():
 
         show_marker_empties = []
         apix_wrong_empties = []
+        defocus_wrong_empties = {}  # only for |CTF|
         ctf_intact_first_peak_empties = []
         for i in range(n):
             if n>1:
@@ -95,6 +96,8 @@ def main():
                 if embed:
                     rotavg = False
                 else:
+                    if ctfs[i].ctf_type=='|CTF|':
+                        defocus_wrong_empties[i] = st.empty()
                     st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help="maximal defocus - minimal defocus", key=f"dfdiff_{i}")
                     if n==1 and ctfs[i].dfdiff:
                         value = ctfs[i].ctf_type == 2
@@ -136,6 +139,7 @@ def main():
             show_qr = False
             env_only = False
             simulate_wrong_apix = False
+            simulate_wrong_defocus = False
         else:
             value = int(st.session_state.get("show_1d", 1))
             show_1d = st.checkbox('Show 1D CTF', value=value, key="show_1d")
@@ -147,10 +151,26 @@ def main():
                 for i in range(n):
                     show_marker_empties[i].checkbox(label='Show markers on CTF line plots', key=f"show_marker_{i}")
                     ctf_intact_first_peak_empties[i].checkbox(label='Ignore CTFs until first peak?', help="Illustrate the meaning of Relion option 'Ignore CTFs until first peak?'", key=f"ctf_intact_first_peak_{i}")
-                simulate_wrong_apix = st.checkbox('Simulate effect of wrong pixel size', value=value, key="simulate_wrong_apix", help="while TEM magnification is highly reproducible, the absolute magnification is often insufficiently calibrated and it is not uncommon to have 1-2% errors. This option will allow you to simulate the effect of inaccurate magnification (and the pixel size based on the magnification) on CTF fitting: small pixel size errors can be sufficiently compensated by defocus but perfect compensation can only be achieved by changing both defocus and cs")
+                
+                simulate_wrong_apix = st.checkbox('Simulate effect of wrong pixel size', value=0, key="simulate_wrong_apix", help="while TEM magnification is highly reproducible, the absolute magnification is often insufficiently calibrated and it is not uncommon to have 1-2% errors. This option will allow you to simulate the effect of inaccurate magnification (and the pixel size based on the magnification) on CTF fitting: small pixel size errors can be sufficiently compensated by defocus but perfect compensation can only be achieved by changing both defocus and cs")
                 if simulate_wrong_apix:
                     for i in range(n):
-                        apix_wrong_empties[i].number_input('wrong pixel size (Å/pixel)', value=st.session_state[f"apix_wrong_{i}"], min_value=0.0, step=0.01, format="%g", key=f"apix_wrong_{i}", help="if a wrong pixel size is used, the CTF curve can still be perfectedly fitted with another set of defocus and cs values: df*(apix_correct/apix_wrong)^2, cs*(apix_correct/apix_wrong)^4")
+                        apix_wrong_empties[i].number_input('wrong pixel size (Å/pixel)', min_value=0.0, step=0.01, format="%g", key=f"apix_wrong_{i}", help="if a wrong pixel size is used, the CTF curve can still be perfectedly fitted with another set of defocus and cs values: df*(apix_correct/apix_wrong)^2, cs*(apix_correct/apix_wrong)^4")
+
+                simulate_wrong_defocus = st.checkbox('Simulate effect of wrong defocus', value=0, key="simulate_wrong_defocus", help="Only used for |CTF| mode. The defocus could be inaccurate due to many reasons, for example, fitting error, astigmatism, sample tilt, thick ice, large particle, etc. Turn on this option to simulate the effect of wrong defocus on CTF phase correction")
+                if simulate_wrong_defocus:
+                    abs_mode = False
+                    for i in range(n):
+                        if ctfs[i].ctf_type == '|CTF|':
+                            abs_mode = True
+                            break
+                    if abs_mode:
+                        for i in range(n):
+                            if i not in defocus_wrong_empties: continue
+                            defocus_wrong_empties[i].number_input('wrong defocus (µm)', step=0.1, format="%.5g", help=f"Positive number for under-focus and negative number for over-focus", key=f"defocus_wrong_{i}")
+                    else:
+                        st.warning(f'"Simulate effect of wrong defocus" only works for |CTF| mode')
+                
                 show_data = st.checkbox('Show CTF raw data', value=False, key="show_data")
             else:
                 show_psf = False
@@ -232,7 +252,16 @@ def main():
                 else:
                     defocuses = [ctfs[i].defocus]
                 for di, defocus in enumerate(defocuses):
-                    s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus, use_apix_wrong=simulate_wrong_apix, env_only=env_only)
+                    if simulate_wrong_defocus and ctfs[i].ctf_type=="|CTF|":
+                        ctf_tmp = ctfs[i].copy()
+                        ctf_tmp.ctf_type = "CTF"
+                        s, s2, ctf_correct = ctf_tmp.ctf1d(plot_s2, defocus_override=ctf_tmp.defocus, use_apix_wrong=simulate_wrong_apix, env_only=env_only)
+                        _, _, ctf_wrong = ctf_tmp.ctf1d(plot_s2, defocus_override=ctf_tmp.defocus_wrong, use_apix_wrong=simulate_wrong_apix, env_only=False)
+                        sign = - np.sign(ctf_wrong)
+                        ctf = - ctf_correct * sign
+                    else:
+                        s, s2, ctf = ctfs[i].ctf1d(plot_s2, defocus_override=defocus, use_apix_wrong=simulate_wrong_apix, env_only=env_only)
+
                     mins.append(np.min(ctf))
                     maxs.append(np.max(ctf))
                     x = s2 if plot_s2 else s
@@ -639,7 +668,6 @@ def get_ctfs_from_session_state():
                 attrs.append( (i, attr, st.session_state[k]) )
     if len(attrs)<1:
         return []
-    
     attrs.sort()
     n = attrs[-1][0]+1
     ctfs = [CTF() for i in range(n)]
@@ -670,6 +698,8 @@ def set_query_parameters(ctfs):
             d["show_data"] = 1
         if state.simulate_wrong_apix:
             d["simulate_wrong_apix"] = 1
+        if state.simulate_wrong_defocus:
+            d["simulate_wrong_defocus"] = 1
     else:
         d["show_1d"] = 0
     if state.show_2d:
@@ -717,7 +747,7 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix env_only".split()
+    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix simulate_wrong_defocus env_only".split()
     float_types = "plot_width".split()
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
@@ -763,7 +793,7 @@ def ctf_varying_parameter_labels(ctfs):
 
 def ctf_varying_parameters(ctfs):
     if len(ctfs)<2: return []
-    attrs = "voltage cs ampcontrast defocus dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix apix_wrong imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
+    attrs = "voltage cs ampcontrast defocus defocus_wrong dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix apix_wrong imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
     ret = []
     for attr in attrs:
         vals = [getattr(ctfs[i], attr) for i in range(len(ctfs))]
@@ -777,11 +807,12 @@ def ctf_varying_parameters(ctfs):
     return ret
 
 class CTF:
-    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0, ctf_intact_first_peak=0, apix_wrong=0.0):
+    def __init__(self, voltage=300.0, cs=2.7, ampcontrast=7.0, defocus=0.5, dfdiff=0.0, dfang=0.0, phaseshift=0.0, bfactor=0.0, alpha=0.0, cc=2.7, dE=0.0, dI=0.0, dZ=0.0, dXY=0.0, apix=1.0, imagesize=256, over_sample=1, ctf_type='CTF', show_marker=0, ctf_intact_first_peak=0, apix_wrong=0.0, defocus_wrong=None):
         self.voltage = voltage
         self.cs = cs
         self.ampcontrast = ampcontrast
         self.defocus = defocus
+        self.defocus_wrong = defocus_wrong if defocus_wrong is not None else defocus
         self.dfdiff = dfdiff
         self.dfang = dfang
         self.phaseshift = phaseshift
@@ -813,7 +844,8 @@ class CTF:
     
     def get_dict(self):
         ret = {}
-        ret.update(self.__dict__)
+        for attr in sorted(self.__dict__):
+            ret[attr] = self.__dict__[attr]
         return ret
 
     def wave_length(self):
