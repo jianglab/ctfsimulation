@@ -359,6 +359,7 @@ def main():
                 if show_psf:
                     tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
                     hover_tips = [("x", "$x Å"), (f"PSF", "$y")]
+                    n = len(ctfs)
                     if n>1:
                         hover_tips = [("Defocus", "@defocus µm")] + hover_tips
                     fig = figure(title=f"Point Spread Function", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
@@ -370,7 +371,7 @@ def main():
                     fig.yaxis.major_label_text_font_size = "16pt"
                     legends = []           
                     for i in range(n):
-                        x_psf, psf = ctfs[i].psf1d(defocus_override=defocus, env_only=env_only)
+                        x_psf, psf = ctfs[i].psf1d(env_only=env_only)
                         source = dict(x=x_psf, y=psf)
                         if n>1: source["defocus"] = [ctfs[i].defocus] * len(x_psf)
                         line = fig.line(x='x', y='y', source=source, line_width=2, color=colors[i%len(colors)])
