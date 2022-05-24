@@ -234,7 +234,11 @@ def main():
                 hover_tips = [("CTF type", "@ctf_type"), ("Defocus", "@defocus µm")] + hover_tips
             fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, tools=tools, tooltips=hover_tips)
             fig.title.align = "center"
-            fig.title.text_font_size = "18px"
+            fig.title.text_font_size = "32px"
+            fig.xaxis.axis_label_text_font_size = "24pt"
+            fig.yaxis.axis_label_text_font_size = "24pt"
+            fig.xaxis.major_label_text_font_size = "16pt"
+            fig.yaxis.major_label_text_font_size = "16pt"
 
             from bokeh.palettes import Category10
             colors = Category10[10]
@@ -331,6 +335,7 @@ def main():
             if len(legends)>1:
                 from bokeh.models import Legend
                 legend = Legend(items=legends, location="top_center", spacing=10, orientation="horizontal")
+                legend.label_text_font_size = '24pt'
                 fig.add_layout(legend, "above")
                 fig.legend.click_policy= "hide"
                 from bokeh.models import CustomJS
@@ -358,7 +363,11 @@ def main():
                         hover_tips = [("Defocus", "@defocus µm")] + hover_tips
                     fig = figure(title=f"Point Spread Function", x_axis_label="x (Å)", y_axis_label="PSF", tools=tools, tooltips=hover_tips)
                     fig.title.align = "center"
-                    fig.title.text_font_size = "18px"     
+                    fig.title.text_font_size = "32px"     
+                    fig.xaxis.axis_label_text_font_size = "24pt"
+                    fig.yaxis.axis_label_text_font_size = "24pt"
+                    fig.xaxis.major_label_text_font_size = "16pt"
+                    fig.yaxis.major_label_text_font_size = "16pt"
                     legends = []           
                     for i in range(n):
                         x_psf, psf = ctfs[i].psf1d(defocus_override=defocus, env_only=env_only)
@@ -371,6 +380,7 @@ def main():
                     if len(legends)>1:
                         from bokeh.models import Legend
                         legend = Legend(items=legends, location="top_center", spacing=10, orientation="horizontal")
+                        legend.label_text_font_size = '24pt'
                         fig.add_layout(legend, "above")
                         fig.legend.click_policy= "hide"
                         from bokeh.models import CustomJS
