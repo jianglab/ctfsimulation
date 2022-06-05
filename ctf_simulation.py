@@ -75,8 +75,6 @@ def main():
         set_session_state_from_ctfs(ctfs)
         
         assert(n == len(ctfs))
-        # make radio display horizontal
-        st.markdown('<style>div.row-widget.stRadio > div{flex-direction:row;}</style>', unsafe_allow_html=True)
 
         show_marker_empties = []
         apix_wrong_empties = []
@@ -91,7 +89,7 @@ def main():
             with expander:
                 if not embed:
                     options = ('CTF', '|CTF|', 'CTF^2')
-                    st.radio(label='CTF type', options=options, index=0, key=f"ctf_type_{i}")
+                    st.radio(label='CTF type', options=options, index=0, horizontal=True, key=f"ctf_type_{i}")
                 st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"Positive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
                 if embed:
                     rotavg = False
@@ -436,7 +434,7 @@ def main():
                             import random
                             session_state.emd_id = random.choice(emdb_ids)
                         input_modes += ["URL"]
-                        input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, key="input_mode")
+                        input_mode = st.radio(label="Choose an input mode:", options=input_modes, index=2, horizontal=True, key="input_mode")
                         if input_mode == "Pattern":
                             mapping = \
                                 {   "Lens Focus Test Chart" : "https://i.ebayimg.com/images/g/~goAAOSw-o9cXayp/s-l1600.jpg", \
