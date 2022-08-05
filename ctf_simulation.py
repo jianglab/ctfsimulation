@@ -107,7 +107,7 @@ def main():
                 st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=['phaseshift'])}  \nPhase shift from phase plate", key=f"phaseshift_{i}")
                 st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=['sampling'])}  \nPixel size of the image. It determines the spatial frequency in the Fourier space. The spatial frequency at the edge of the Fourier transform (e.g. Nyquiest) is 1/(2*pixel size)", key=f"apix_{i}")
                 apix_wrong_empties.append(st.empty())
-                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=['voltage'])}  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
+                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=['voltage'])}  \n" + r"${\textcolor{red}{\lambda}}=\frac{h}{\sqrt{2m_0e{\textcolor{red}{V}}(1+\frac{e{\textcolor{red}{V}}}{2m_0c^2)})}}$" + "  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
                 st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", help=f"{ctf_latex(colored_attrs=['cs'])}  \nSpherical aberration coefficient", key=f"cs_{i}")
                 st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['ampcontrast'])}  \nAmplitude contrast (0-100)", key=f"ampcontrast_{i}")
                 if not embed:
@@ -1001,14 +1001,14 @@ class CTF:
         return ds, ds2, ctf
 
 def ctf_latex(colored_attrs=[]):
-    mapping = dict(sampling="s", voltage="\lambda", defocus="\Delta f", dfdiff="\Delta\Delta f", dfang="\\theta_0", cs="C_s", bfactor="B", phaseshift="\phi", ampcontrast=r"sin^{-1}(\frac {ac}{100})")
+    mapping = dict(sampling="s", voltage="\lambda", defocus="\Delta f", dfdiff="\Delta\Delta f", dfang="\\theta_0", cs="C_s", bfactor="B", phaseshift="\phi", ampcontrast="Q")
     mapping2 = {}
     for attr in mapping:
         if attr in colored_attrs:
             mapping2[attr] = r"{\textcolor{red}{" + mapping[attr] + r"}}"
         else:
             mapping2[attr] = mapping[attr]
-    ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + mapping2["ampcontrast"] + r"+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
+    ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + r"sin^{-1}(" + mapping2["ampcontrast"] + r")+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
     print(ret)
     return ret
 
