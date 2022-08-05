@@ -52,18 +52,18 @@ def main():
         st.elements.utils._shown_default_value_warning = True
         ctfs = parse_query_parameters()
         set_session_state_from_ctfs(ctfs)
-    embed = session_state.embed
+    embedded = session_state.embedded
     ctfs = get_ctfs_from_session_state()
     st.title(session_state.title)
 
-    if embed:
+    if embedded:
         col_params, col_1d = st.columns((1, 5))
     else:
         col_params = st.sidebar
         st.info(ctf_latex())
 
     with col_params:
-        if embed:
+        if embedded:
             n = 1
         else:
             n = int(st.number_input('Number of CTFs', value=max(1, len(ctfs)), min_value=1, step=1))
@@ -88,11 +88,11 @@ def main():
                 import contextlib
                 expander = contextlib.nullcontext()
             with expander:
-                if not embed:
+                if not embedded:
                     options = ('CTF', '|CTF|', 'CTF^2')
                     st.radio(label='CTF type', options=options, index=0, horizontal=True, key=f"ctf_type_{i}")
                 st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"{ctf_latex(colored_attrs=['defocus'])}  \nPositive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
-                if embed:
+                if embedded:
                     rotavg = False
                 else:
                     if ctfs[i].ctf_type=='|CTF|':
@@ -110,7 +110,7 @@ def main():
                 st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=['voltage'])}  \n" + r"${\textcolor{red}{\lambda}}=\frac{h}{\sqrt{2m_0e{\textcolor{red}{V}}(1+\frac{e{\textcolor{red}{V}}}{2m_0c^2)})}}$" + "  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
                 st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", help=f"{ctf_latex(colored_attrs=['cs'])}  \nSpherical aberration coefficient", key=f"cs_{i}")
                 st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['ampcontrast'])}  \nAmplitude contrast (0-100)", key=f"ampcontrast_{i}")
-                if not embed:
+                if not embedded:
                     st.number_input('image size (pixel)', value=int(st.session_state[f"imagesize_{i}"]), min_value=16, max_value=4096, step=4, key=f"imagesize_{i}")
                     st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, help=f"{ctf_latex(colored_attrs=['sampling'])}  \nIncrease the image size to n times of the original size. It will make the Fourier space pixel size n time finer to better sample the CTF oscillations", key=f"over_sample_{i}")
                 
@@ -127,7 +127,7 @@ def main():
                 show_marker_empties.append(st.empty())
                 ctf_intact_first_peak_empties.append(st.empty())
 
-        if embed:
+        if embedded:
             show_1d = True
             show_2d = False
             show_psf = False
@@ -203,7 +203,7 @@ def main():
     ctfs = get_ctfs_from_session_state()
     ctf_labels = ctf_varying_parameter_labels(ctfs)
 
-    if not embed:
+    if not embedded:
         if show_1d and show_2d:
             col_1d, col_2d = st.tabs(["1-D", "2-D"])
         else:
@@ -351,7 +351,7 @@ def main():
             if len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
                 st.write("[Relion source code implementing \"Ignore CTFs until first peak\"](https://github.com/3dem/relion/blob/dcab7933398a8b728e56a08ea1bb2539a5ba71d4/src/ctf.h#L204)")
 
-            if not embed:
+            if not embedded:
                 if show_psf:
                     tools = 'box_zoom,crosshair,hover,pan,reset,save,wheel_zoom'
                     hover_tips = [("x", "$x Å"), (f"PSF", "$y")]
@@ -395,7 +395,7 @@ def main():
                     st.bokeh_chart(fig, use_container_width=True)
                     del fig                
 
-    if show_2d and not embed:
+    if show_2d and not embedded:
         with col_2d:
             st.text("") # workaround for a layout bug in streamlit 
 
@@ -523,7 +523,7 @@ def main():
                         st.bokeh_chart(fig2d, use_container_width=True)
                         del fig2d
     
-    if not embed and show_1d and show_data:
+    if not embedded and show_1d and show_data:
         with col_1d:
             import pandas as pd
             for i, (col3_label, s, x, ctf) in enumerate(raw_data):
@@ -550,7 +550,7 @@ def main():
         st.experimental_set_query_params()
 
     with col_1d:
-        if not embed:
+        if not embedded:
             st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/e/2PACX-1vTB-nZBdKVjEdDqV4DNxm7znY_dH4biyHieLNzi-i1I1kNJYgvjT72INbFpK9cUFTO95l8gKDynzGFx/pub?start=true&loop=true&delayms=3000)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
         st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctfsimulation). Report problems to Wen Jiang (jiang12 at purdue.edu)*")
 
@@ -611,7 +611,7 @@ def generate_image_figure(image, dxy, ctf_type, title, plot_s2=False, show_color
     fig2d.add_tools(image_hover)
 
     if ctf_type is not None:
-        # avoid the need for embedding res/s/s2 image -> smaller fig object and less data to transfer
+        # avoid the need for embeddedding res/s/s2 image -> smaller fig object and less data to transfer
         from bokeh.models import CustomJS
         from bokeh.events import MouseMove
         mousemove_callback_code = """
@@ -725,7 +725,7 @@ def set_query_parameters(ctfs):
     if "plot_s2" in state and state.plot_s2: d["plot_s2"] = 1
     if "show_avg" in state and state.show_avg: d["show_avg"] = 1
     if "env_only" in state and state.env_only: d["env_only"] = 1
-    if "embed" in state and state.embed: d["embed"] = 1
+    if "embedded" in state and state.embedded: d["embedded"] = 1
     if "share_url" in state and state.share_url: d["share_url"] = 1
     if "show_qr" in state and state.show_qr: d["show_qr"] = 1
     if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
@@ -755,8 +755,8 @@ def parse_query_parameters():
     float_types = []
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
-        if attr == "embed":
-            st.session_state.embed = "embed" in query_params and query_params["embed"][0]!='0'
+        if attr == "embedded":
+            st.session_state.embedded = "embedded" in query_params and query_params["embedded"][0]!='0'
         elif attr == "title":
             st.session_state.title = query_params[attr][0]
         elif attr in int_types:
@@ -765,9 +765,9 @@ def parse_query_parameters():
             st.session_state[attr] = float(query_params[attr][0])
         else:
             st.session_state[attr] = query_params[attr][0]
-    if "embed" not in st.session_state:
-        st.session_state.embed = 0
-    if st.session_state.embed or "title" not in st.session_state:
+    if "embedded" not in st.session_state:
+        st.session_state.embedded = 0
+    if st.session_state.embedded or "title" not in st.session_state:
         st.session_state.title = "CTF Simulation"
     return ctfs
 
