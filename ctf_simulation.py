@@ -1009,7 +1009,6 @@ def ctf_latex(colored_attrs=[]):
         else:
             mapping2[attr] = mapping[attr]
     ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + r"sin^{-1}(" + mapping2["ampcontrast"] + r")+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
-    print(ret)
     return ret
 
 #@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
