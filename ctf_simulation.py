@@ -60,6 +60,7 @@ def main():
         col_params, col_1d = st.columns((1, 5))
     else:
         col_params = st.sidebar
+        st.info(ctf_latex())
 
     with col_params:
         if embed:
@@ -90,31 +91,31 @@ def main():
                 if not embed:
                     options = ('CTF', '|CTF|', 'CTF^2')
                     st.radio(label='CTF type', options=options, index=0, horizontal=True, key=f"ctf_type_{i}")
-                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"Positive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
+                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"{ctf_latex(colored_attrs=['defocus'])}  \nPositive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
                 if embed:
                     rotavg = False
                 else:
                     if ctfs[i].ctf_type=='|CTF|':
                         defocus_wrong_empties[i] = st.empty()
-                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help="maximal defocus - minimal defocus", key=f"dfdiff_{i}")
+                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=['dfdiff'])}  \nMagnitude of astimgatism (=maximal defocus - minimal defocus)", key=f"dfdiff_{i}")
                     if n==1 and ctfs[i].dfdiff:
                         value = ctfs[i].ctf_type == 2
                         rotavg = st.checkbox(label='plot rotational average', value=value, key="rotavg")
                     else:
                         rotavg = False
-                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"dfang_{i}")
-                st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", key=f"phaseshift_{i}")
-                st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", key=f"apix_{i}")
+                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=['dfang'])}  \nMInplane angle of the maximal dofocus direction", key=f"dfang_{i}")
+                st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=['phaseshift'])}  \nPhase shift from phase plate", key=f"phaseshift_{i}")
+                st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=['sampling'])}  \nPixel size of the image. It determines the spatial frequency in the Fourier space. The spatial frequency at the edge of the Fourier transform (e.g. Nyquiest) is 1/(2*pixel size)", key=f"apix_{i}")
                 apix_wrong_empties.append(st.empty())
-                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", key=f"voltage_{i}")
-                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", key=f"cs_{i}")
-                st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", key=f"ampcontrast_{i}")
+                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=['voltage'])}  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
+                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", help=f"{ctf_latex(colored_attrs=['cs'])}  \nSpherical aberration coefficient", key=f"cs_{i}")
+                st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['ampcontrast'])}  \nAmplitude contrast (0-100)", key=f"ampcontrast_{i}")
                 if not embed:
                     st.number_input('image size (pixel)', value=int(st.session_state[f"imagesize_{i}"]), min_value=16, max_value=4096, step=4, key=f"imagesize_{i}")
-                    st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, key=f"over_sample_{i}")
+                    st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, help=f"{ctf_latex(colored_attrs=['sampling'])}  \nIncrease the image size to n times of the original size. It will make the Fourier space pixel size n time finer to better sample the CTF oscillations", key=f"over_sample_{i}")
                 
                     #with st.expander("envelope functions", expanded=False):
-                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", key=f"bfactor_{i}", help="exp(-B*s*s/4)")
+                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['bfactor'])}  \nEnvelope function", key=f"bfactor_{i}")
                     st.number_input('beam convergence semi-angle (mrad)', value=st.session_state[f"alpha_{i}"], min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
                     dE = st.number_input('energy spread (eV)', value=st.session_state[f"dE_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
                     dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
@@ -178,9 +179,6 @@ def main():
                 simulate_ctf_effect = st.checkbox('Simulate CTF effect on images', value=value, key="simulate_ctf_effect")
                 if simulate_ctf_effect:
                     simulate_ctf_effect_container = st.container()
-                show_2d_right = st.checkbox("Show 2D CTF/images on the right", value=False, key="show_2d_right")
-                if show_2d_right:
-                    plot_width = st.number_input("Plot width (fraction of screen width)", value=0.6, min_value=0.1, max_value=0.99, key="plot_width")
 
             if show_1d or show_2d:
                 value = int(st.session_state.get("plot_s2", 0))
@@ -206,8 +204,8 @@ def main():
     ctf_labels = ctf_varying_parameter_labels(ctfs)
 
     if not embed:
-        if show_2d and show_2d_right:
-            col_1d, col_2d = st.columns((max(0.01, plot_width), max(0.01, 1-plot_width)))
+        if show_1d and show_2d:
+            col_1d, col_2d = st.tabs(["1-D", "2-D"])
         else:
             col_1d, _ = st.columns((1, 0.01))
             col_2d = col_1d
@@ -713,9 +711,6 @@ def set_query_parameters(ctfs):
         d["show_1d"] = 0
     if state.show_2d:
         d["show_2d"] = 1
-        if state.show_2d_right:
-            d["show_2d_right"] = 1
-            d["plot_width"] = st.session_state.plot_width
         if state.simulate_ctf_effect:
             d["simulate_ctf_effect"] = 1
             if state.input_mode == "URL":
@@ -756,8 +751,8 @@ def parse_query_parameters():
                         setattr(ctfs[i], attr, int(query_params[attr][i]))
                     else:
                         setattr(ctfs[i], attr, float(query_params[attr][i]))
-    int_types = "show_1d show_2d show_2d_right show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix simulate_wrong_defocus env_only".split()
-    float_types = "plot_width".split()
+    int_types = "show_1d show_2d show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix simulate_wrong_defocus env_only".split()
+    float_types = []
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embed":
@@ -1004,6 +999,18 @@ class CTF:
         elif self.ctf_type== "|CTF|": ctf = np.abs(ctf)
         del gamma, env, phaseshift, defocus2d, s, s2, theta
         return ds, ds2, ctf
+
+def ctf_latex(colored_attrs=[]):
+    mapping = dict(sampling="s", voltage="\lambda", defocus="\Delta f", dfdiff="\Delta\Delta f", dfang="\\theta_0", cs="C_s", bfactor="B", phaseshift="\phi", ampcontrast=r"sin^{-1}(\frac {ac}{100})")
+    mapping2 = {}
+    for attr in mapping:
+        if attr in colored_attrs:
+            mapping2[attr] = r"{\textcolor{red}{" + mapping[attr] + r"}}"
+        else:
+            mapping2[attr] = mapping[attr]
+    ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + mapping2["ampcontrast"] + r"+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
+    print(ret)
+    return ret
 
 #@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def compute_radial_profile(image):
