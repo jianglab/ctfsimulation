@@ -47,6 +47,10 @@ def main():
     title = "CTF Simulation"
     st.set_page_config(page_title=title, layout="wide")
 
+    hosted, host = is_hosted(return_host=True)
+    if hosted and host in ['heroku']:
+        st.error(f"This app hosted on Heroku will be unavailable starting November 28, 2022 [when Heroku discontinues free hosting service](https://blog.heroku.com/next-chapter). Please switch to [the same app hosted elsewhere](https://jianglab-ctfsimulation-streamlit-app-of60di.streamlitapp.com)")
+
     session_state = st.session_state
     if "defocus_0" not in session_state:  # only run once at the start of the session
         st.elements.utils._shown_default_value_warning = True
