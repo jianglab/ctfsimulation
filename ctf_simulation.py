@@ -1,7 +1,7 @@
 """ 
 MIT License
 
-Copyright (c) 2020-2022 Wen Jiang
+Copyright (c) 2020-2023 Wen Jiang
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -877,7 +877,7 @@ class CTF:
         if extended: f *= np.sqrt(4./3.)
         return f
 
-    #@st.cache(persist=True, show_spinner=False)
+    #@st.cache_data(persist=True, show_spinner=False)
     def ctf1d(self, plot_s2=False, defocus_override=None, use_apix_wrong=False, env_only=False):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*self.apix)
@@ -920,7 +920,7 @@ class CTF:
         
         return s, s2, ctf
 
-    #@st.cache(persist=True, show_spinner=False)
+    #@st.cache_data(persist=True, show_spinner=False)
     def psf1d(self, defocus_override=None, env_only=False):
         defocus_final = defocus_override if defocus_override is not None else self.defocus
         s_nyquist = 1./(2*self.apix)
@@ -955,7 +955,7 @@ class CTF:
 
         return x, psf
 
-    #@st.cache(persist=True, show_spinner=False)
+    #@st.cache_data(persist=True, show_spinner=False)
     def ctf2d(self, plot_s2=False, env_only=False):    
         s_nyquist = 1./(2*self.apix)
         if plot_s2:
@@ -1015,7 +1015,7 @@ def ctf_latex(colored_attrs=[]):
     ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + r"sin^{-1}(" + mapping2["ampcontrast"] + r")+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
     return ret
 
-#@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
+#@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def compute_radial_profile(image):
     ny, nx = image.shape
     rmax = min(nx//2, ny//2)+1
@@ -1035,14 +1035,14 @@ def compute_radial_profile(image):
     rad_profile = polar.mean(axis=0)
     return rad_profile
 
-#@st.cache(persist=True, show_spinner=False)
+#@st.cache_data(persist=True, show_spinner=False)
 def normalize(data, percentile=(0, 100)):
     p0, p1 = percentile
     vmin, vmax = sorted(np.percentile(data, (p0, p1)))
     data2 = (data-vmin)/(vmax-vmin)
     return data2.astype(np.float32)
 
-@st.cache(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
+@st.cache_data(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
     try:
         import pandas as pd
@@ -1052,7 +1052,7 @@ def get_emdb_ids():
         emdb_ids = ["11638"]
     return emdb_ids
 
-@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
+@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     emdb_ids = get_emdb_ids()
     if emd_id in emdb_ids:
@@ -1061,7 +1061,7 @@ def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None)
     else:
         return None
 
-@st.cache(max_entries=10, ttl=3600, persist=True, show_spinner=False)
+@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
 def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
     from skimage.io import imread
     try:
@@ -1094,7 +1094,7 @@ def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
         image = -image + 1
     return image
 
-#@st.cache(persist=True, show_spinner=False)
+#@st.cache_data(persist=True, show_spinner=False)
 def get_table_download_link(df, label="Download the CTF data"):
     """Generates a link allowing the data in a given panda dataframe to be downloaded
     in:  dataframe
@@ -1106,7 +1106,7 @@ def get_table_download_link(df, label="Download the CTF data"):
     href = f'<a href="data:file/csv;base64,{b64}" download="ctf_curve_table.csv">{label}</a>'
     return href
 
-@st.cache(persist=True, show_spinner=False)
+@st.cache_data(persist=True, show_spinner=False)
 def setup_anonymous_usage_tracking():
     try:
         import pathlib, stat
