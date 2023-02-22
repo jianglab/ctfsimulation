@@ -1153,7 +1153,7 @@ def qr_code(url=None, size = 8):
         _, host = is_hosted(return_host=True)
         if len(host)<1: return None
         if host == "streamlit":
-            url = "https://share.streamlit.io/wjiang/ctfsimulation/master/"
+            url = "https://ctfsimulation.streamlit.app/"
         elif host == "heroku":
             url = "https://ctfsimulation.herokuapp.com/"
         else:
