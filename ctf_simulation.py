@@ -404,15 +404,24 @@ def main():
             st.text("") # workaround for a layout bug in streamlit 
 
             show_color = False
+            ctf_2d_avg = None
 
             fig2ds = []
             for i in range(n):
                 ds, ds2, ctf_2d = ctfs[i].ctf2d(plot_s2, env_only=env_only)
+                if show_avg:
+                    if ctf_2d_avg is None: ctf_2d_avg = ctf_2d * 1.0
+                    else: ctf_2d_avg += ctf_2d
+
                 dxy = ds2 if plot_s2 else ds
                 title = ctf_labels[i]
                 fig2d = generate_image_figure(ctf_2d, dxy, ctfs[i].ctf_type, title, plot_s2, show_color)
                 fig2ds.append(fig2d)
                 del ctf_2d
+            if ctf_2d_avg is not None:
+                title = "average"
+                fig2d = generate_image_figure(ctf_2d_avg, dxy, ctfs[i].ctf_type, title, plot_s2, show_color)
+                fig2ds.append(fig2d)
             if len(fig2ds)>1:
                 from bokeh.models import CrosshairTool
                 crosshair = CrosshairTool(dimensions="both")
@@ -503,17 +512,25 @@ def main():
                     del fig2d
                     if link: st.markdown(link, unsafe_allow_html=True)
 
+                    image_avg = None
                     fig2ds = []
                     for i in range(n):
                         _, _, ctf_2d = ctfs[i].ctf2d(plot_s2=False, env_only=env_only)
                         from skimage.transform import resize
                         image_work = resize(image, (ctfs[i].imagesize*ctfs[i].over_sample, ctfs[i].imagesize*ctfs[i].over_sample), anti_aliasing=True)
                         image2 = np.abs(np.fft.ifft2(np.fft.fft2(image_work)*np.fft.fftshift(ctf_2d)))
+                        if show_avg:
+                            if image_avg is None: image_avg = image2 * 1.0
+                            else: image_avg += image2
                         title = ctf_labels[i]
                         fig2d = generate_image_figure(image2, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
                         fig2ds.append(fig2d)
                         del ctf_2d, image2, image_work
                     del image
+                    if image_avg is not None:
+                        title = "average"
+                        fig2d = generate_image_figure(image_avg, dxy=1.0, ctf_type=None, title=title, plot_s2=False, show_color=show_color)
+                        fig2ds.append(fig2d)
                     if len(fig2ds)>1:
                         from bokeh.models import CrosshairTool
                         crosshair = CrosshairTool(dimensions="both")
