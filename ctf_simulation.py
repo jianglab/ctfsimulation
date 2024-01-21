@@ -568,7 +568,7 @@ def main():
                 qr_image = qr_code()
                 st.image(qr_image)
     else:
-        st.experimental_set_query_params()
+        st.query_params.clear()
 
     with col_1d:
         if not embedded:
@@ -750,12 +750,12 @@ def set_query_parameters(ctfs):
     if "share_url" in state and state.share_url: d["share_url"] = 1
     if "show_qr" in state and state.show_qr: d["show_qr"] = 1
     if "title" in state and state.title != "CTF Simulation": d["title"] = state.title
-    st.experimental_set_query_params(**d)
+    st.query_params.update(d)
 
 def parse_query_parameters():
-    query_params = st.experimental_get_query_params()
+    query_params = st.query_params
     ctf_attrs = CTF().get_dict().keys()
-    ns = [len(query_params[attr]) for attr in ctf_attrs if attr in query_params]
+    ns = [len(query_params.get_all(attr)) for attr in ctf_attrs if attr in query_params]
     if not ns:
         ctfs = []
     else:
@@ -765,27 +765,27 @@ def parse_query_parameters():
         int_types = ["imagesize", "over_sample", "show_marker"]
         for attr in ctf_attrs:
             if attr in query_params:
-                for i in range(len(query_params[attr])):
+                for i in range(len(query_params.get_all(attr))):
                     if attr in str_types:
-                        setattr(ctfs[i], attr, query_params[attr][i])
+                        setattr(ctfs[i], attr, query_params.get_all(attr)[i])
                     elif attr in int_types:
-                        setattr(ctfs[i], attr, int(query_params[attr][i]))
+                        setattr(ctfs[i], attr, int(query_params.get_all(attr)[i]))
                     else:
-                        setattr(ctfs[i], attr, float(query_params[attr][i]))
+                        setattr(ctfs[i], attr, float(query_params.get_all(attr)[i]))
     int_types = "show_1d show_2d show_psf show_data plot_s2 show_avg share_url show_qr rotavg simulate_ctf_effect simulate_wrong_apix simulate_wrong_defocus env_only".split()
     float_types = []
     other_attrs = [ attr for attr in query_params if attr not in ctf_attrs ]
     for attr in other_attrs:
         if attr == "embedded":
-            st.session_state.embedded = "embedded" in query_params and query_params["embedded"][0]!='0'
+            st.session_state.embedded = "embedded" in query_params and query_params["embedded"]!='0'
         elif attr == "title":
-            st.session_state.title = query_params[attr][0]
+            st.session_state.title = query_params[attr]
         elif attr in int_types:
-            st.session_state[attr] = int(query_params[attr][0])
+            st.session_state[attr] = int(query_params[attr])
         elif attr in float_types:
-            st.session_state[attr] = float(query_params[attr][0])
+            st.session_state[attr] = float(query_params[attr])
         else:
-            st.session_state[attr] = query_params[attr][0]
+            st.session_state[attr] = query_params[attr]
     if "embedded" not in st.session_state:
         st.session_state.embedded = 0
     if st.session_state.embedded or "title" not in st.session_state:
@@ -1059,7 +1059,7 @@ def normalize(data, percentile=(0, 100)):
     data2 = (data-vmin)/(vmax-vmin)
     return data2.astype(np.float32)
 
-@st.cache_data(persist=True, show_spinner=False, ttl=24*60*60.) # refresh every day
+@st.cache_data(persist=False, show_spinner=False, ttl=24*60*60.) # refresh every day
 def get_emdb_ids():
     try:
         import pandas as pd
@@ -1069,7 +1069,7 @@ def get_emdb_ids():
         emdb_ids = ["11638"]
     return emdb_ids
 
-@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
+@st.cache_data(max_entries=10, ttl=3600, persist=False, show_spinner=False)
 def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None):
     emdb_ids = get_emdb_ids()
     if emd_id in emdb_ids:
@@ -1078,7 +1078,7 @@ def get_emdb_image(emd_id, invert_contrast=-1, rgb2gray=True, output_shape=None)
     else:
         return None
 
-@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
+@st.cache_data(max_entries=10, ttl=3600, persist=False, show_spinner=False)
 def get_image(url, invert_contrast=-1, rgb2gray=True, output_shape=None):
     from skimage.io import imread
     try:
@@ -1176,8 +1176,8 @@ def qr_code(url=None, size = 8):
         else:
             url = f"http://{host}:8501/"
         import urllib
-        params = st.experimental_get_query_params()
-        d = {k:params[k][0] for k in params}
+        params = st.query_params
+        d = {k:params.get_all(k) for k in params}
         url += "?" + urllib.parse.urlencode(d)
     if not url: return None
     img = qrcode.make(url)  # qrcode.image.pil.PilImage
