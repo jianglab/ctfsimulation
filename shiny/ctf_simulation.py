@@ -74,7 +74,22 @@ class CTF:
         return s, ctf
 
 
-# ui.page_opts(title="Penguins dashboard", fillable=True)
+ui.head_content(
+    ui.HTML(
+        """
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', 'G-YV3ZFR8VG6');
+        </script>
+        """
+    )
+)
+
+ui.head_content(ui.tags.title("CTF Simulation"))
 
 with ui.sidebar():
     ui.input_numeric("defocus", "Defocus (μm)", value=0.5, min=0, step=0.1)
@@ -154,19 +169,6 @@ with ui.card(full_screen=True):
         return fig
 
 
-@render.ui
-def _():
-    return ui.div(
-        ui.tags.i(
-            "Developed by the ",
-            ui.tags.a(
-                "Jiang Lab", href="https://jiang.bio.purdue.edu", target="_blank"
-            ),
-            ". Report issues at ",
-            ui.tags.a(
-                "CTFSimulation@GitHub",
-                href="https://github.com/jianglab/ctfsimulation/issues",
-                target="_blank",
-            ),
-        )
-    )
+ui.HTML(
+    '<i>Developed by the <a href="https://jiang.bio.purdue.edu" target="_blank">Jiang Lab</a>. Report issues at <a href="https://github.com/jianglab/ctfsimulation/issues" target="_blank">CTFSimulation@GitHub</a></i>'
+)
