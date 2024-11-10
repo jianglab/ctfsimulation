@@ -75,22 +75,15 @@ def Page():
     )
 
 def google_analytics(id):
-    with solara.Head():
-        solara.head_tag.HeadTag(
-            tagname="script",
-            attributes={
-                "content":
-                    f"""
-                    <script async src="https://www.googletagmanager.com/gtag/js?id={id}"></script>
-                    <script>
-                    window.dataLayer = window.dataLayer || [];
-                    function gtag(){{dataLayer.push(arguments);}}
-                    gtag('js', new Date());
-                    gtag('config', '{id}');
-                    </script>
-                    """
-            }
-        )
+    solara.HTML(
+        tag="script",
+        attributes={"src": f"https://www.googletagmanager.com/gtag/js?id={id}"}
+    )
+    solara.HTML(
+        tag="script",
+        unsafe_innerHTML=f"""window.dataLayer = window.dataLayer || []; function gtag(){{dataLayer.push(arguments);}}
+                gtag('js', new Date()); gtag('config', '{id}');"""
+    )
 
 class CTF:
     def __init__(
