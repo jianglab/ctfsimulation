@@ -40,6 +40,7 @@ import_with_auto_install(required_packages)
 
 import streamlit as st
 import numpy as np
+np.bool8 = bool  # fix for bokeh 2.4.3
 
 #from memory_profiler import profile
 #@profile(precision=4)
@@ -53,7 +54,7 @@ def main():
 
     session_state = st.session_state
     if "defocus_0" not in session_state:  # only run once at the start of the session
-        st.elements.utils._shown_default_value_warning = True
+        st.elements.lib.policies._shown_default_value_warning = True
         ctfs = parse_query_parameters()
         set_session_state_from_ctfs(ctfs)
     embedded = session_state.embedded
@@ -1022,7 +1023,7 @@ class CTF:
         return ds, ds2, ctf
 
 def ctf_latex(colored_attrs=[]):
-    mapping = dict(sampling="s", voltage="\lambda", defocus="\Delta f", dfdiff="\Delta\Delta f", dfang="\\theta_0", cs="C_s", bfactor="B", phaseshift="\phi", ampcontrast="Q")
+    mapping = dict(sampling="s", voltage=r"\lambda", defocus=r"\Delta f", dfdiff=r"\Delta\Delta f", dfang=r"\\theta_0", cs="C_s", bfactor="B", phaseshift=r"\phi", ampcontrast="Q")
     mapping2 = {}
     for attr in mapping:
         if attr in colored_attrs:
