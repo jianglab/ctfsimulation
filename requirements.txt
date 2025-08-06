@@ -1,7 +1,8 @@
-bokeh==2.4.3
+bokeh
 numpy
 pandas
 scikit_image
 scipy
 streamlit
+streamlit_bokeh
 qrcode

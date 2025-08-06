@@ -1,7 +1,7 @@
 """ 
 MIT License
 
-Copyright (c) 2020-2023 Wen Jiang
+Copyright (c) 2020-2025 Wen Jiang
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -35,12 +35,12 @@ def import_with_auto_install(packages, scope=locals()):
             import subprocess
             subprocess.call(f'pip install {package_pip_name}', shell=True)
             scope[package_import_name] =  __import__(package_import_name)
-required_packages = "streamlit numpy scipy bokeh".split()
+required_packages = "streamlit numpy scipy streamlit_bokeh".split()
 import_with_auto_install(required_packages)
 
 import streamlit as st
+from streamlit_bokeh import streamlit_bokeh
 import numpy as np
-np.bool8 = bool  # fix for bokeh 2.4.3
 
 #from memory_profiler import profile
 #@profile(precision=4)
@@ -350,7 +350,7 @@ def main():
                     }
                 """)
                 fig.js_on_event(DoubleTap, toggle_legend_js)
-            st.bokeh_chart(fig, use_container_width=True)
+            streamlit_bokeh(fig, use_container_width=True)
             del fig
 
             if len([True for ctf in ctfs if ctf.ctf_intact_first_peak]):
@@ -397,7 +397,7 @@ def main():
                         """)
                         fig.js_on_event(DoubleTap, toggle_legend_js)
                     st.text("") # workaround for a layout bug in streamlit 
-                    st.bokeh_chart(fig, use_container_width=True)
+                    streamlit_bokeh(fig, use_container_width=True)
                     del fig                
 
     if show_2d and not embedded:
@@ -430,10 +430,10 @@ def main():
                 for fig in fig2ds: fig.add_tools(crosshair)
                 from bokeh.layouts import gridplot
                 figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
-                st.bokeh_chart(figs_grid, use_container_width=True)
+                streamlit_bokeh(figs_grid, use_container_width=True)
                 del figs_grid
             else:
-                st.bokeh_chart(fig2d, use_container_width=True)
+                streamlit_bokeh(fig2d, use_container_width=True)
                 del fig2d
             
             if simulate_ctf_effect:
@@ -509,7 +509,7 @@ def main():
                     import_with_auto_install(["skimage:scikit_image"])
                     image = normalize(image)
                     fig2d = generate_image_figure(image, dxy=1.0, ctf_type=None, title="Original Image", plot_s2=False, show_color=show_color)
-                    st.bokeh_chart(fig2d, use_container_width=True)
+                    streamlit_bokeh(fig2d, use_container_width=True)
                     del fig2d
                     if link: st.markdown(link, unsafe_allow_html=True)
 
@@ -539,10 +539,10 @@ def main():
                         for fig in fig2ds: fig.add_tools(crosshair)
                         from bokeh.layouts import gridplot
                         figs_grid = gridplot(children=[fig2ds], toolbar_location=None)
-                        st.bokeh_chart(figs_grid, use_container_width=True)
+                        streamlit_bokeh(figs_grid, use_container_width=True)
                         del figs_grid
                     else:
-                        st.bokeh_chart(fig2d, use_container_width=True)
+                        streamlit_bokeh(fig2d, use_container_width=True)
                         del fig2d
     
     if not embedded and show_1d and show_data:
@@ -574,7 +574,7 @@ def main():
     with col_1d:
         if not embedded:
             st.markdown("**Learn more about [Contrast Transfer Function (CTF)](https://en.wikipedia.org/wiki/Contrast_transfer_function):**\n* [CTF Tutorial, Wen Jiang](https://docs.google.com/presentation/d/e/2PACX-1vTB-nZBdKVjEdDqV4DNxm7znY_dH4biyHieLNzi-i1I1kNJYgvjT72INbFpK9cUFTO95l8gKDynzGFx/pub?start=true&loop=true&delayms=3000)\n* [The contrast transfer function, Grant Jensen](https://www.youtube.com/watch?v=mPynoF2j6zc&t=2s)\n* [Defocus phase contrast, Fred Sigworth](https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5)\n")
-        st.markdown("*Developed by the [Jiang Lab@Purdue University](https://jiang.bio.purdue.edu/ctfsimulation). Report problems to [CTFSimulation@GitHub](https://github.com/jianglab/ctfsimulation/issues)*")
+        st.markdown("*Developed by the [Jiang Lab@Penn State University](https://jianglab.science.psu.edu/ctfsimulation). Report problems to [CTFSimulation@GitHub](https://github.com/jianglab/ctfsimulation/issues)*")
 
 
     hide_streamlit_style = """
