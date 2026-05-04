@@ -7,6 +7,15 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
     <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-YV3ZFR8VG6"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-YV3ZFR8VG6');
+    </script>
     <style>
       :root {
         color-scheme: light;
@@ -66,6 +75,12 @@
       .sidebar .small,
       .sidebar .mini-note {
         font-size: 0.94rem;
+      }
+
+      .sidebar input[type="number"],
+      .sidebar input[type="text"],
+      .sidebar select {
+        padding: 0.1rem 0.5rem;
       }
 
       .main {
@@ -191,7 +206,7 @@
       .control-grid {
         display: grid;
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 4px;
         margin-top: 14px;
       }
 
@@ -565,56 +580,66 @@
         </div>
         <div id="ctf-list"></div>
         <div class="panel">
-          <div class="control-grid">
-            <div class="field toggle" style="align-self: end;">
-              <input id="show-average" type="checkbox" />
-              <label for="show-average">Plot average CTF</label>
+          <details class="ctf-card accordion" open>
+            <summary class="accordion-summary">
+              <span class="accordion-title">
+                <span>Display Options</span>
+              </span>
+              <span class="accordion-icon">&#9656;</span>
+            </summary>
+            <div class="accordion-body">
+              <div class="control-grid">
+                <div class="field toggle" style="align-self: end;">
+                  <input id="show-average" type="checkbox" />
+                  <label for="show-average">Show average CTF</label>
+                </div>
+                <div class="field toggle">
+                  <input id="env-only" type="checkbox" />
+                  <label for="env-only">Show envelope only</label>
+                </div>
+                <div class="field toggle">
+                  <input id="show-data" type="checkbox" />
+                  <label for="show-data">Show raw data</label>
+                </div>
+                <div class="field toggle">
+                  <input id="show-psf" type="checkbox" />
+                  <label for="show-psf">Show PSF</label>
+                </div>
+                <div class="field toggle">
+                  <input id="show-2d" type="checkbox" />
+                  <label for="show-2d">Show 2D CTF</label>
+                </div>
+                <div class="field toggle">
+                  <input id="rot-avg" type="checkbox" />
+                  <label for="rot-avg">Show rotational average</label>
+                </div>
+                <div class="field toggle">
+                  <input id="simulate-image" type="checkbox" />
+                  <label for="simulate-image">Simulate CTF on image</label>
+                </div>
+                <div class="field toggle">
+                  <input id="simulate-wrong-apix" type="checkbox" />
+                  <label for="simulate-wrong-apix">Simulate wrong pixel size</label>
+                </div>
+                <div class="field toggle">
+                  <input id="simulate-wrong-defocus" type="checkbox" />
+                  <label for="simulate-wrong-defocus">Simulate wrong defocus</label>
+                </div>
+                <div class="field toggle">
+                  <input id="plot-s2" type="checkbox" />
+                  <label for="plot-s2">Use s² as x-axis</label>
+                </div>
+                <div class="field toggle">
+                  <input id="share-url" type="checkbox" />
+                  <label for="share-url">Show state in URL</label>
+                </div>
+                <div class="field toggle">
+                  <input id="show-qr" type="checkbox" />
+                  <label for="show-qr">Show QR preview</label>
+                </div>
+              </div>
             </div>
-            <div class="field toggle">
-              <input id="plot-s2" type="checkbox" />
-              <label for="plot-s2">Use s² as x-axis</label>
-            </div>
-            <div class="field toggle">
-              <input id="env-only" type="checkbox" />
-              <label for="env-only">Envelope only</label>
-            </div>
-            <div class="field toggle">
-              <input id="show-data" type="checkbox" />
-              <label for="show-data">Show raw data</label>
-            </div>
-            <div class="field toggle">
-              <input id="show-psf" type="checkbox" />
-              <label for="show-psf">Show PSF</label>
-            </div>
-            <div class="field toggle">
-              <input id="show-2d" type="checkbox" />
-              <label for="show-2d">Show 2D CTF</label>
-            </div>
-            <div class="field toggle">
-              <input id="rot-avg" type="checkbox" />
-              <label for="rot-avg">Rotational average</label>
-            </div>
-            <div class="field toggle">
-              <input id="simulate-image" type="checkbox" />
-              <label for="simulate-image">Simulate CTF on image</label>
-            </div>
-            <div class="field toggle">
-              <input id="simulate-wrong-apix" type="checkbox" />
-              <label for="simulate-wrong-apix">Wrong pixel size</label>
-            </div>
-            <div class="field toggle">
-              <input id="simulate-wrong-defocus" type="checkbox" />
-              <label for="simulate-wrong-defocus">Wrong defocus</label>
-            </div>
-            <div class="field toggle">
-              <input id="share-url" type="checkbox" />
-              <label for="share-url">Keep state in URL</label>
-            </div>
-            <div class="field toggle">
-              <input id="show-qr" type="checkbox" />
-              <label for="show-qr">Show QR preview</label>
-            </div>
-          </div>
+          </details>
           <div class="warning" id="app-warning" hidden></div>
           <div class="link-row" id="share-block" hidden>
             <img id="qr-image" class="qr-preview hidden" alt="QR preview" />
@@ -1645,12 +1670,12 @@
                 </select>
               </div>
               ${numberField("defocus", "Defocus (µm)", ctf.defocus, 0.1)}
-              ${numberField("defocus_wrong", "Wrong defocus (µm)", ctf.defocus_wrong, 0.1)}
+              ${state.simulateWrongDefocus ? numberField("defocus_wrong", "Wrong defocus (µm)", ctf.defocus_wrong, 0.1) : ""}
               ${numberField("dfdiff", "Astigmatism mag (µm)", ctf.dfdiff, 0.01)}
               ${numberField("dfang", "Astigmatism angle (°)", ctf.dfang, 1)}
               ${numberField("phaseshift", "Phase shift (°)", ctf.phaseshift, 1)}
               ${numberField("apix", "Pixel size (Å/pixel)", ctf.apix, 0.01, 0.1)}
-              ${numberField("apix_wrong", "Wrong pixel size (Å/pixel)", ctf.apix_wrong, 0.01, 0.1)}
+              ${state.simulateWrongApix ? numberField("apix_wrong", "Wrong pixel size (Å/pixel)", ctf.apix_wrong, 0.01, 0.1) : ""}
               ${numberField("voltage", "Voltage (kV)", ctf.voltage, 100, 10)}
               ${numberField("cs", "Cs (mm)", ctf.cs, 0.1)}
               ${numberField("ampcontrast", "Amplitude contrast (%)", ctf.ampcontrast, 1, 0)}
