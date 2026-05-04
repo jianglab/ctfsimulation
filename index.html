@@ -1,0 +1,2237 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CTF Simulation</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --sidebar-bg: #f0f2f6;
+        --sidebar-width: 300px;
+        --panel: #ffffff;
+        --panel-border: rgba(49, 51, 63, 0.10);
+        --ink: #31333f;
+        --muted: #555867;
+        --accent: #ff4b4b;
+        --accent-soft: #eef4ff;
+        --grid: rgba(49, 51, 63, 0.10);
+        --warn: #8b3d3d;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Source Sans Pro", "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        overflow: hidden;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) 10px minmax(0, 1fr);
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      .sidebar {
+        padding: 1rem;
+        border-right: 0;
+        background: var(--sidebar-bg);
+        font-size: 0.94rem;
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      .sidebar label,
+      .sidebar legend {
+        font-size: 0.92rem;
+      }
+
+      .sidebar input,
+      .sidebar select,
+      .sidebar button,
+      .sidebar .accordion-summary,
+      .sidebar .toggle label,
+      .sidebar .small,
+      .sidebar .mini-note {
+        font-size: 0.94rem;
+      }
+
+      .main {
+        padding: 6rem 5rem 3rem;
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+        background: #ffffff;
+      }
+
+      .sidebar-resizer {
+        position: relative;
+        width: 10px;
+        cursor: col-resize;
+        background: transparent;
+      }
+
+      .sidebar-resizer::before {
+        content: "";
+        position: absolute;
+        inset: 0 3px;
+        background: rgba(49, 51, 63, 0.08);
+        transition: background-color 120ms ease;
+      }
+
+      .sidebar-resizer:hover::before,
+      .sidebar-resizer.dragging::before {
+        background: rgba(255, 75, 75, 0.35);
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-weight: 600;
+        letter-spacing: normal;
+      }
+
+      h1 {
+        font-size: clamp(2.8rem, 4vw, 4rem);
+        line-height: 1.05;
+      }
+
+      .lede {
+        display: none;
+      }
+
+      .panel,
+      .ctf-card,
+      .plot-panel,
+      .table-panel {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 1rem;
+        box-shadow: var(--shadow);
+      }
+
+      .panel {
+        padding: 0;
+        margin-bottom: 16px;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+
+      .ctf-card {
+        padding: 0.75rem 1rem;
+        margin-bottom: 16px;
+        border-radius: 0.85rem;
+      }
+
+      .ctf-card.accordion {
+        padding: 0;
+        overflow: hidden;
+      }
+
+      .ctf-card h3 {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 1rem;
+        margin-bottom: 12px;
+      }
+
+      .accordion-summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 0.9rem 1rem;
+        font-size: 1rem;
+        user-select: none;
+      }
+
+      .accordion-summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .accordion-title {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .accordion-icon {
+        color: var(--muted);
+        font-size: 0.9rem;
+        transition: transform 140ms ease;
+      }
+
+      .ctf-card[open] .accordion-icon {
+        transform: rotate(90deg);
+      }
+
+      .accordion-body {
+        padding: 0 1rem 1rem;
+      }
+
+      .control-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      label,
+      legend {
+        font-size: 1rem;
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      input,
+      select,
+      button {
+        width: 100%;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(49, 51, 63, 0.14);
+        padding: 0.7rem 0.85rem;
+        background: #ffffff;
+        color: var(--ink);
+        font: inherit;
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        padding: 0;
+        accent-color: var(--accent);
+      }
+
+      select,
+      input[type="number"],
+      input[type="text"] {
+        min-height: 2.5rem;
+      }
+
+      .toggle {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-start;
+      }
+
+      .field.toggle {
+        flex-direction: row;
+      }
+
+      .toggle label {
+        color: var(--ink);
+        font-size: 0.98rem;
+      }
+
+      .control-grid .field.toggle {
+        align-items: center;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      button {
+        cursor: pointer;
+        background: var(--accent);
+        color: #ffffff;
+        font-weight: 600;
+        border: 1px solid transparent;
+      }
+
+      button.secondary {
+        background: #ffffff;
+        color: var(--ink);
+        border-color: rgba(49, 51, 63, 0.16);
+      }
+
+      .plot-panel,
+      .table-panel {
+        padding: 1.25rem;
+      }
+
+      .plot-panel {
+        min-height: 0;
+      }
+
+      #plot-1d {
+        min-height: 500px;
+      }
+
+      .status-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .status-box {
+        padding: 1rem 1.1rem;
+        border-radius: 1rem;
+        background: #ffffff;
+        border: 1px solid rgba(49, 51, 63, 0.10);
+      }
+
+      .status-box strong {
+        display: block;
+        font-size: 1.25rem;
+        margin-top: 6px;
+      }
+
+      .warning {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #fff1f0;
+        color: var(--warn);
+        border: 1px solid rgba(255, 75, 75, 0.18);
+      }
+
+      .link-row {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .link-row input {
+        flex: 1 1 240px;
+      }
+
+      .table-scroll {
+        overflow: auto;
+        max-height: 340px;
+        margin-top: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(96, 78, 48, 0.14);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+        background: #ffffff;
+      }
+
+      th,
+      td {
+        padding: 8px 10px;
+        border-bottom: 1px solid rgba(95, 80, 60, 0.08);
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      th:first-child,
+      td:first-child {
+        text-align: left;
+      }
+
+      .small {
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .formula {
+        font-size: 0.86rem;
+        line-height: 1.5;
+      }
+
+      .formula-banner {
+        margin-top: 1.5rem;
+        padding: 1rem 1.25rem;
+        border-radius: 0.85rem;
+        background: #eaf2ff;
+        color: #325a8c;
+        font-size: 1rem;
+        line-height: 1.4;
+        overflow-x: auto;
+      }
+
+      .formula-banner .katex-display {
+        margin: 0;
+      }
+
+      .formula-banner.fallback {
+        font-size: 1.05rem;
+      }
+
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .plot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+      }
+
+      .plot-card {
+        min-height: 360px;
+        border-radius: 16px;
+        border: 1px solid rgba(49, 51, 63, 0.10);
+        background: #ffffff;
+      }
+
+      .image-display-card {
+        aspect-ratio: var(--image-aspect, 1 / 1);
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      .native-image-card {
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .native-image-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .plot-card.square {
+        aspect-ratio: 1 / 1;
+        min-height: 320px;
+      }
+
+      .panel-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .qr-preview {
+        width: 128px;
+        height: 128px;
+        object-fit: contain;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid rgba(49, 51, 63, 0.14);
+        padding: 6px;
+      }
+
+      .image-controls {
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(49, 51, 63, 0.12);
+      }
+
+      .sidebar .panel.formula {
+        display: none;
+      }
+
+      .mini-note {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.4;
+      }
+
+      .learn-more {
+        margin-top: 1.5rem;
+        color: var(--ink);
+        font-size: 0.95rem;
+        line-height: 1.6;
+      }
+
+      .learn-more p {
+        margin: 0 0 0.8rem;
+      }
+
+      .learn-more ul {
+        margin: 0 0 1.25rem 1.25rem;
+        padding: 0;
+      }
+
+      .learn-more li + li {
+        margin-top: 0.35rem;
+      }
+
+      .learn-more a {
+        color: #2a5d9f;
+        text-decoration: underline;
+      }
+
+      .learn-more .footer-note {
+        color: var(--muted);
+        font-style: italic;
+      }
+
+      @media (max-width: 1100px) {
+        .app-shell {
+          grid-template-columns: 1fr;
+          grid-template-rows: minmax(280px, 42vh) minmax(0, 1fr);
+          height: 100vh;
+          overflow: hidden;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--panel-border);
+          height: auto;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+
+        .sidebar-resizer {
+          display: none;
+        }
+
+        .status-row {
+          grid-template-columns: 1fr;
+        }
+
+        .main {
+          padding: 2rem 1.25rem 1.5rem;
+          height: auto;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .main,
+        .sidebar {
+          padding: 1rem;
+        }
+
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="panel">
+          <div class="control-grid">
+            <div class="field">
+              <label for="ctf-count">Number of CTFs</label>
+              <input id="ctf-count" type="number" min="1" max="6" step="1" />
+            </div>
+          </div>
+        </div>
+        <div id="ctf-list"></div>
+        <div class="panel">
+          <div class="control-grid">
+            <div class="field toggle" style="align-self: end;">
+              <input id="show-average" type="checkbox" />
+              <label for="show-average">Plot average CTF</label>
+            </div>
+            <div class="field toggle">
+              <input id="plot-s2" type="checkbox" />
+              <label for="plot-s2">Use s² as x-axis</label>
+            </div>
+            <div class="field toggle">
+              <input id="env-only" type="checkbox" />
+              <label for="env-only">Envelope only</label>
+            </div>
+            <div class="field toggle">
+              <input id="show-data" type="checkbox" />
+              <label for="show-data">Show raw data</label>
+            </div>
+            <div class="field toggle">
+              <input id="show-psf" type="checkbox" />
+              <label for="show-psf">Show PSF</label>
+            </div>
+            <div class="field toggle">
+              <input id="show-2d" type="checkbox" />
+              <label for="show-2d">Show 2D CTF</label>
+            </div>
+            <div class="field toggle">
+              <input id="rot-avg" type="checkbox" />
+              <label for="rot-avg">Rotational average</label>
+            </div>
+            <div class="field toggle">
+              <input id="simulate-image" type="checkbox" />
+              <label for="simulate-image">Simulate CTF on image</label>
+            </div>
+            <div class="field toggle">
+              <input id="simulate-wrong-apix" type="checkbox" />
+              <label for="simulate-wrong-apix">Wrong pixel size</label>
+            </div>
+            <div class="field toggle">
+              <input id="simulate-wrong-defocus" type="checkbox" />
+              <label for="simulate-wrong-defocus">Wrong defocus</label>
+            </div>
+            <div class="field toggle">
+              <input id="share-url" type="checkbox" />
+              <label for="share-url">Keep state in URL</label>
+            </div>
+            <div class="field toggle">
+              <input id="show-qr" type="checkbox" />
+              <label for="show-qr">Show QR preview</label>
+            </div>
+          </div>
+          <div class="warning" id="app-warning" hidden></div>
+          <div class="link-row" id="share-block" hidden>
+            <img id="qr-image" class="qr-preview hidden" alt="QR preview" />
+          </div>
+          <div class="image-controls hidden" id="image-controls">
+            <div class="field-grid">
+              <div class="field full">
+                <label for="image-mode">Image source</label>
+                <select id="image-mode">
+                  <option value="delta">Delta function</option>
+                  <option value="checkerboard">Checkerboard</option>
+                  <option value="rings">Concentric rings</option>
+                  <option value="gradient">Gradient face</option>
+                  <option value="url">External image URL</option>
+                </select>
+              </div>
+              <div class="field full hidden" id="image-url-field">
+                <label for="image-url">Image URL</label>
+                <input id="image-url" type="text" placeholder="https://example.com/image.png" />
+              </div>
+            </div>
+            <p class="mini-note">Remote image loading depends on the source allowing CORS. Generated patterns always work offline.</p>
+          </div>
+        </div>
+        <div class="panel formula">
+          <h2>Model</h2>
+          <p>
+            CTF uses the same phase term as the Streamlit app:
+            <br />
+            <strong>γ(s) = 2π(-0.5 Δf λ s² + 0.25 C<sub>s</sub> λ³ s⁴) - (φ + asin(Q))</strong>
+          </p>
+          <p class="small">Envelope terms for B-factor, convergence, chromatic aberration, energy spread, current spread, and specimen motion are included.</p>
+        </div>
+        <div class="panel">
+          <div class="button-row">
+            <button id="reset-state" class="secondary" type="button">Reset defaults</button>
+          </div>
+        </div>
+      </aside>
+
+      <div class="sidebar-resizer" id="sidebar-resizer" aria-hidden="true"></div>
+
+      <main class="main">
+        <header>
+          <h1>CTF Simulation</h1>
+          <div class="formula-banner" id="formula-banner"></div>
+        </header>
+
+        <div class="stack" style="margin-top: 18px;">
+          <section class="plot-panel">
+            <div class="panel-head">
+              <div>
+                <h2>1D CTF</h2>
+              </div>
+            </div>
+            <div id="plot-1d"></div>
+          </section>
+
+          <section class="plot-panel hidden" id="psf-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Point Spread Function</h2>
+                <p class="small">Computed from the inverse FFT of the centered 1D CTF.</p>
+              </div>
+            </div>
+            <div id="plot-psf" class="plot-card"></div>
+          </section>
+
+          <section class="plot-panel hidden" id="ctf2d-panel">
+            <div class="panel-head">
+              <div>
+                <h2>2D CTF</h2>
+                <p class="small">Astigmatism-aware 2D transfer maps. Each card is rendered independently for faster updates.</p>
+              </div>
+            </div>
+            <div id="plot-2d-grid" class="plot-grid"></div>
+          </section>
+
+          <section class="plot-panel hidden" id="psf2d-panel">
+            <div class="panel-head">
+              <div>
+                <h2>2D PSF</h2>
+                <p class="small">Computed from the inverse FFT of the centered 2D CTF.</p>
+              </div>
+            </div>
+            <div id="plot-psf2d-grid" class="plot-grid"></div>
+          </section>
+
+          <section class="plot-panel hidden" id="image-panel">
+            <div class="panel-head">
+              <div>
+                <h2>Image Simulation</h2>
+                <p class="small">FFT-based filtering with the selected 2D CTF. The source image can be procedural or loaded from a CORS-enabled URL.</p>
+              </div>
+            </div>
+            <div id="image-grid" class="plot-grid"></div>
+          </section>
+
+          <section class="table-panel hidden" id="raw-data-panel">
+          <div style="display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <div>
+              <h2>Raw Data</h2>
+            </div>
+          </div>
+          <div class="table-scroll" id="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Trace</th>
+                  <th>x</th>
+                  <th>Resolution (Å)</th>
+                  <th>CTF</th>
+                </tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+          <div class="button-row" style="margin-top: 12px; justify-content: flex-end;">
+            <button id="download-csv" type="button" class="secondary">Download CSV</button>
+          </div>
+          </section>
+        </div>
+
+        <section class="learn-more">
+          <p><strong>Learn more about <a href="https://en.wikipedia.org/wiki/Contrast_transfer_function" target="_blank" rel="noreferrer">Contrast Transfer Function (CTF)</a>:</strong></p>
+          <ul>
+            <li><a href="https://jiang.bio.purdue.edu/ctf" target="_blank" rel="noreferrer">CTF Tutorial, Wen Jiang</a></li>
+            <li><a href="https://www.youtube.com/watch?reload=9&v=mPynoF2j6zc&t=2s" target="_blank" rel="noreferrer">The contrast transfer function, Grant Jensen</a></li>
+            <li><a href="https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5" target="_blank" rel="noreferrer">Defocus phase contrast, Fred Sigworth</a></li>
+          </ul>
+          <p class="footer-note">Developed by the <a href="https://jianglab.science.psu.edu/" target="_blank" rel="noreferrer">Jiang Lab</a>. Report problems to <a href="https://github.com/jianglab/ctfsimulation" target="_blank" rel="noreferrer">CTFSimulation@GitHub</a>.</p>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b", "#e377c2", "#7f7f7f", "#bcbd22", "#17becf"];
+
+      const DEFAULT_CTF = {
+        voltage: 300,
+        cs: 2.7,
+        ampcontrast: 7,
+        defocus: 0.5,
+        defocus_wrong: 0.5,
+        dfdiff: 0,
+        dfang: 0,
+        phaseshift: 0,
+        bfactor: 0,
+        alpha: 0,
+        cc: 2.7,
+        dE: 0,
+        dI: 0,
+        dZ: 0,
+        dXY: 0,
+        apix: 1,
+        apix_wrong: 1,
+        imagesize: 256,
+        over_sample: 1,
+        ctf_type: "CTF",
+        show_marker: 0,
+        ctf_intact_first_peak: 0
+      };
+
+      const DEFAULT_STATE = {
+        count: 1,
+        plotS2: false,
+        envOnly: false,
+        showAvg: false,
+        showData: false,
+        showPSF: false,
+        show2D: false,
+        rotAvg: false,
+        simulateImage: false,
+        simulateWrongApix: false,
+        simulateWrongDefocus: false,
+        shareUrl: false,
+        showQr: false,
+        imageMode: "delta",
+        imageUrl: "",
+        accordionOpen: [true],
+        ctfs: [structuredClone(DEFAULT_CTF)]
+      };
+
+      const INTEGER_CTF_FIELDS = new Set(["imagesize", "over_sample"]);
+      const SIDEBAR_WIDTH_KEY = "ctf-sidebar-width";
+      const state = hydrateState();
+      let lastRenderData = [];
+      let renderNonce = 0;
+
+      function clampSidebarWidth(width) {
+        const min = 260;
+        const max = Math.min(640, Math.max(min, window.innerWidth - 360));
+        return Math.max(min, Math.min(max, width));
+      }
+
+      function applySidebarWidth(width) {
+        const next = clampSidebarWidth(width);
+        document.documentElement.style.setProperty("--sidebar-width", `${next}px`);
+        try {
+          window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(next));
+        } catch {
+          // Ignore storage failures.
+        }
+      }
+
+      function initializeSidebarWidth() {
+        let stored = 300;
+        try {
+          stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY) || stored);
+        } catch {
+          stored = 300;
+        }
+        applySidebarWidth(Number.isFinite(stored) ? stored : 300);
+      }
+
+      function renderFormulaBanner() {
+        const banner = document.getElementById("formula-banner");
+        if (!(banner instanceof HTMLDivElement)) {
+          return;
+        }
+        const expression = String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(-\frac{2\pi}{\lambda}\left(\frac{\lambda^2 s^2}{2}\left(\Delta f + \Delta\Delta f\cos\left(2\left(\theta-\theta_0\right)\right)\right) - \frac{\lambda^4 s^4}{4}C_s\right)+\sin^{-1}(Q)+\phi\right)e^{-Bs^2/4}`;
+        if (typeof window.katex?.render === "function") {
+          banner.classList.remove("fallback");
+          window.katex.render(expression, banner, { displayMode: true, throwOnError: false });
+          return;
+        }
+        banner.classList.add("fallback");
+        banner.textContent = "CTF(s, θ) ≈ sin((-2π / λ)((λ²s² / 2)(Δf + ΔΔf cos(2(θ - θ₀))) - (λ⁴s⁴ / 4)Cₛ) + sin⁻¹(Q) + ϕ)e^(-Bs² / 4)";
+      }
+
+      function setupSidebarResizer() {
+        const resizer = document.getElementById("sidebar-resizer");
+        const shell = document.querySelector(".app-shell");
+        if (!(resizer instanceof HTMLDivElement) || !(shell instanceof HTMLElement)) {
+          return;
+        }
+
+        const onPointerMove = (event) => {
+          if (window.innerWidth <= 1100) {
+            return;
+          }
+          const shellRect = shell.getBoundingClientRect();
+          applySidebarWidth(event.clientX - shellRect.left);
+        };
+
+        const stopDragging = () => {
+          resizer.classList.remove("dragging");
+          window.removeEventListener("pointermove", onPointerMove);
+          window.removeEventListener("pointerup", stopDragging);
+          window.removeEventListener("pointercancel", stopDragging);
+        };
+
+        resizer.addEventListener("pointerdown", (event) => {
+          if (window.innerWidth <= 1100) {
+            return;
+          }
+          event.preventDefault();
+          resizer.classList.add("dragging");
+          window.addEventListener("pointermove", onPointerMove);
+          window.addEventListener("pointerup", stopDragging);
+          window.addEventListener("pointercancel", stopDragging);
+        });
+
+        window.addEventListener("resize", () => {
+          const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-width"));
+          if (Number.isFinite(current)) {
+            applySidebarWidth(current);
+          }
+        });
+      }
+
+      function hydrateState() {
+        const params = new URLSearchParams(window.location.search);
+        const next = structuredClone(DEFAULT_STATE);
+        next.count = clampInt(Number(params.get("count") || next.count), 1, 6);
+        next.plotS2 = params.get("plotS2") === "1";
+        next.envOnly = params.get("envOnly") === "1";
+        next.showAvg = params.get("showAvg") === "1";
+        next.showData = params.get("showData") === "1";
+        next.showPSF = params.get("showPSF") === "1";
+        next.show2D = params.get("show2D") === "1";
+        next.rotAvg = params.get("rotAvg") === "1";
+        next.simulateImage = params.get("simulateImage") === "1";
+        next.simulateWrongApix = params.get("simulateWrongApix") === "1";
+        next.simulateWrongDefocus = params.get("simulateWrongDefocus") === "1";
+        next.shareUrl = params.get("shareUrl") === "1";
+        next.showQr = params.get("showQr") === "1";
+        next.imageMode = params.get("imageMode") || next.imageMode;
+        next.imageUrl = params.get("imageUrl") || next.imageUrl;
+        next.ctfs = Array.from({ length: next.count }, (_, index) => {
+          const ctf = structuredClone(DEFAULT_CTF);
+          Object.keys(ctf).forEach((key) => {
+            const raw = params.get(`ctf${index}_${key}`);
+            if (raw === null) {
+              return;
+            }
+            ctf[key] = key === "ctf_type" ? raw : Number(raw);
+          });
+          return ctf;
+        });
+        return next;
+      }
+
+      function currentUrl(query) {
+        const href = new URL(window.location.href);
+        href.search = query ? `?${query}` : "";
+        return href.href;
+      }
+
+      function normalizedAccordionOpen(count, current = []) {
+        return Array.from({ length: count }, (_, index) => Boolean(current[index]));
+      }
+
+      function buildStateQuery() {
+        const params = new URLSearchParams();
+        params.set("count", String(state.count));
+        if (state.plotS2) params.set("plotS2", "1");
+        if (state.envOnly) params.set("envOnly", "1");
+        if (state.showAvg) params.set("showAvg", "1");
+        if (state.showData) params.set("showData", "1");
+        if (state.showPSF) params.set("showPSF", "1");
+        if (state.show2D) params.set("show2D", "1");
+        if (state.rotAvg) params.set("rotAvg", "1");
+        if (state.simulateImage) params.set("simulateImage", "1");
+        if (state.simulateWrongApix) params.set("simulateWrongApix", "1");
+        if (state.simulateWrongDefocus) params.set("simulateWrongDefocus", "1");
+        if (state.shareUrl) params.set("shareUrl", "1");
+        if (state.showQr) params.set("showQr", "1");
+        if (state.imageMode !== DEFAULT_STATE.imageMode) params.set("imageMode", state.imageMode);
+        if (state.imageUrl) params.set("imageUrl", state.imageUrl);
+
+        state.ctfs.forEach((ctf, index) => {
+          Object.entries(ctf).forEach(([key, value]) => {
+            if (value !== DEFAULT_CTF[key]) {
+              params.set(`ctf${index}_${key}`, String(value));
+            }
+          });
+        });
+
+        return params.toString();
+      }
+
+      function syncUrl() {
+        const query = buildStateQuery();
+        window.history.replaceState({}, "", query ? `${window.location.pathname}?${query}` : window.location.pathname);
+      }
+
+      function resetState() {
+        Object.keys(state).forEach((key) => delete state[key]);
+        Object.assign(state, structuredClone(DEFAULT_STATE));
+        void render();
+      }
+
+      function clampInt(value, min, max) {
+        return Math.min(max, Math.max(min, Number.isFinite(value) ? Math.round(value) : min));
+      }
+
+      function cloneCtf() {
+        return JSON.parse(JSON.stringify(DEFAULT_CTF));
+      }
+
+      function escapeAttr(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
+      }
+
+      function setHidden(id, hidden) {
+        document.getElementById(id).classList.toggle("hidden", hidden);
+      }
+
+      function waveLengthAngstrom(voltage) {
+        return 12.2639 / Math.sqrt(voltage * 1000 + 0.97845 * voltage * voltage);
+      }
+
+      function scherzerDefocus(ctf, extended = true) {
+        let value = Math.sqrt(ctf.cs * 1e3 * waveLengthAngstrom(ctf.voltage) * 1e-4);
+        if (extended) {
+          value *= Math.sqrt(4 / 3);
+        }
+        return value;
+      }
+
+      function sAtFirstPeak(ctf, defocusFinal = ctf.defocus) {
+        const wl = waveLengthAngstrom(ctf.voltage);
+        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
+        const a = 2 * Math.PI * 0.25 * ctf.cs * 1e7 * wl ** 3;
+        const b = 2 * Math.PI * (-0.5 * defocusFinal * 1e4 * wl);
+        const c = -phaseShift + Math.PI / 2;
+        const disc = b * b - 4 * a * c;
+        if (disc <= 0 || a === 0) {
+          return NaN;
+        }
+        const s2 = (-b - Math.sqrt(disc)) / (2 * a);
+        return s2 > 0 ? Math.sqrt(s2) : NaN;
+      }
+
+      function j0(x) {
+        const ax = Math.abs(x);
+        if (ax < 8) {
+          const y = x * x;
+          const ans1 = 57568490574 + y * (-13362590354 + y * (651619640.7 + y * (-11214424.18 + y * (77392.33017 + y * -184.9052456))));
+          const ans2 = 57568490411 + y * (1029532985 + y * (9494680.718 + y * (59272.64853 + y * (267.8532712 + y))));
+          return ans1 / ans2;
+        }
+        const z = 8 / ax;
+        const y = z * z;
+        const xx = ax - 0.785398164;
+        const ans1 = 1 + y * (-0.001098628627 + y * (0.00002734510407 + y * (-0.000002073370639 + y * 0.0000002093887211)));
+        const ans2 = -0.01562499995 + y * (0.0001430488765 + y * (-0.000006911147651 + y * (0.0000007621095161 - y * 0.0000000934945152)));
+        return Math.sqrt(0.636619772 / ax) * (Math.cos(xx) * ans1 - z * Math.sin(xx) * ans2);
+      }
+
+      function sinc(value) {
+        if (Math.abs(value) < 1e-8) {
+          return 1;
+        }
+        return Math.sin(value) / value;
+      }
+
+      function nextPow2(value) {
+        let power = 1;
+        while (power < value) {
+          power <<= 1;
+        }
+        return power;
+      }
+
+      function fftInPlace(re, im, inverse = false) {
+        const length = re.length;
+        for (let i = 1, j = 0; i < length; i += 1) {
+          let bit = length >> 1;
+          while (j & bit) {
+            j ^= bit;
+            bit >>= 1;
+          }
+          j ^= bit;
+          if (i < j) {
+            [re[i], re[j]] = [re[j], re[i]];
+            [im[i], im[j]] = [im[j], im[i]];
+          }
+        }
+
+        for (let len = 2; len <= length; len <<= 1) {
+          const angle = (inverse ? 2 : -2) * Math.PI / len;
+          const stepCos = Math.cos(angle);
+          const stepSin = Math.sin(angle);
+          for (let start = 0; start < length; start += len) {
+            let wCos = 1;
+            let wSin = 0;
+            const half = len >> 1;
+            for (let offset = 0; offset < half; offset += 1) {
+              const even = start + offset;
+              const odd = even + half;
+              const tr = re[odd] * wCos - im[odd] * wSin;
+              const ti = re[odd] * wSin + im[odd] * wCos;
+              re[odd] = re[even] - tr;
+              im[odd] = im[even] - ti;
+              re[even] += tr;
+              im[even] += ti;
+              const nextCos = wCos * stepCos - wSin * stepSin;
+              wSin = wCos * stepSin + wSin * stepCos;
+              wCos = nextCos;
+            }
+          }
+        }
+
+        if (inverse) {
+          for (let index = 0; index < length; index += 1) {
+            re[index] /= length;
+            im[index] /= length;
+          }
+        }
+      }
+
+      function fftShift1D(values) {
+        const length = values.length;
+        const half = Math.floor(length / 2);
+        const shifted = new Float64Array(length);
+        for (let index = 0; index < length; index += 1) {
+          shifted[index] = values[(index + half) % length];
+        }
+        return shifted;
+      }
+
+      function fftShift2DFlat(values, width, height = width) {
+        const shifted = new Float64Array(values.length);
+        const halfWidth = Math.floor(width / 2);
+        const halfHeight = Math.floor(height / 2);
+        for (let row = 0; row < height; row += 1) {
+          for (let col = 0; col < width; col += 1) {
+            const srcRow = (row + halfHeight) % height;
+            const srcCol = (col + halfWidth) % width;
+            shifted[row * width + col] = values[srcRow * width + srcCol];
+          }
+        }
+        return shifted;
+      }
+
+      function fft2D(re, im, width, height = width, inverse = false) {
+        for (let row = 0; row < height; row += 1) {
+          const rowRe = new Float64Array(width);
+          const rowIm = new Float64Array(width);
+          for (let col = 0; col < width; col += 1) {
+            const index = row * width + col;
+            rowRe[col] = re[index];
+            rowIm[col] = im[index];
+          }
+          fftInPlace(rowRe, rowIm, inverse);
+          for (let col = 0; col < width; col += 1) {
+            const index = row * width + col;
+            re[index] = rowRe[col];
+            im[index] = rowIm[col];
+          }
+        }
+
+        for (let col = 0; col < width; col += 1) {
+          const colRe = new Float64Array(height);
+          const colIm = new Float64Array(height);
+          for (let row = 0; row < height; row += 1) {
+            const index = row * width + col;
+            colRe[row] = re[index];
+            colIm[row] = im[index];
+          }
+          fftInPlace(colRe, colIm, inverse);
+          for (let row = 0; row < height; row += 1) {
+            const index = row * width + col;
+            re[index] = colRe[row];
+            im[index] = colIm[row];
+          }
+        }
+      }
+
+      function buildAxis(ctf, plotS2) {
+        const sNyquist = 1 / (2 * ctf.apix);
+        const pointCount = Math.floor(ctf.imagesize / 2) * ctf.over_sample + 1;
+        const s = new Float64Array(pointCount);
+        const s2 = new Float64Array(pointCount);
+        if (plotS2) {
+          const ds2 = (sNyquist * sNyquist) / (Math.floor(ctf.imagesize / 2) * ctf.over_sample);
+          for (let index = 0; index < pointCount; index += 1) {
+            s2[index] = index * ds2;
+            s[index] = Math.sqrt(s2[index]);
+          }
+        } else {
+          const ds = sNyquist / (Math.floor(ctf.imagesize / 2) * ctf.over_sample);
+          for (let index = 0; index < pointCount; index += 1) {
+            s[index] = index * ds;
+            s2[index] = s[index] * s[index];
+          }
+        }
+        return { s, s2 };
+      }
+
+      function ctf1d(ctf, options = {}) {
+        const defocusFinal = options.defocusOverride ?? ctf.defocus;
+        const { s, s2 } = buildAxis(ctf, options.plotS2);
+        const wl = waveLengthAngstrom(ctf.voltage);
+        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
+        const values = new Float64Array(s.length);
+        const peakLimit = ctf.ctf_intact_first_peak ? sAtFirstPeak(ctf, defocusFinal) : NaN;
+
+        for (let index = 0; index < s.length; index += 1) {
+          const gamma = 2 * Math.PI * (-0.5 * defocusFinal * 1e4 * wl * s2[index] + 0.25 * ctf.cs * 1e7 * wl ** 3 * s2[index] * s2[index]) - phaseShift;
+          let env = 1;
+          if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2[index] / 4);
+          if (ctf.alpha) {
+            const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s[index] ** 3 - 1e4 * defocusFinal * s[index]);
+            env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
+          }
+          if (ctf.dE) {
+            const dETerm = Math.PI * ctf.cc * wl * s[index] * s[index] * ctf.dE / ctf.voltage;
+            env *= Math.exp(-(dETerm ** 2) / (16 * Math.log(2)) * 1e8);
+          }
+          if (ctf.dI) {
+            const dITerm = Math.PI * ctf.cc * wl * s[index] * s[index] * ctf.dI;
+            env *= Math.exp(-(dITerm ** 2) / (4 * Math.log(2)) * 1e2);
+          }
+          if (ctf.dZ) env *= j0(Math.PI * ctf.dZ * wl * s[index] * s[index]);
+          if (ctf.dXY) env *= sinc(Math.PI * ctf.dXY * s[index]);
+          if (options.envOnly) {
+            values[index] = env;
+            continue;
+          }
+
+          let ctfValue = Math.sin(gamma);
+          if (ctf.ctf_intact_first_peak && Number.isFinite(peakLimit) && s[index] <= peakLimit) {
+            ctfValue = -1;
+          }
+          ctfValue *= env;
+          if (ctf.ctf_type === "CTF^2") ctfValue *= ctfValue;
+          if (ctf.ctf_type === "|CTF|") ctfValue = Math.abs(ctfValue);
+          values[index] = ctfValue;
+        }
+
+        if (options.useApixWrong && ctf.apix_wrong > 0 && ctf.apix_wrong !== ctf.apix) {
+          const scale = ctf.apix / ctf.apix_wrong;
+          for (let index = 0; index < s.length; index += 1) {
+            s[index] *= scale;
+            s2[index] *= scale * scale;
+          }
+        }
+
+        return { s, s2, values };
+      }
+
+      function psf1d(ctf, options = {}) {
+        const size = clampInt(ctf.imagesize, 16, 4096);
+        const sNyquist = 1 / (2 * ctf.apix);
+        const ds = sNyquist / (size / 2);
+        const s = new Float64Array(size);
+        const s2 = new Float64Array(size);
+        const values = new Float64Array(size);
+        const wl = waveLengthAngstrom(ctf.voltage);
+        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
+
+        for (let index = 0; index < size; index += 1) {
+          s[index] = (index - size / 2) * ds;
+          s2[index] = s[index] * s[index];
+          const gamma = 2 * Math.PI * (-0.5 * ctf.defocus * 1e4 * wl * s2[index] + 0.25 * ctf.cs * 1e7 * wl ** 3 * s2[index] * s2[index]) - phaseShift;
+          let env = 1;
+          if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2[index] / 4);
+          if (ctf.alpha) {
+            const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s[index] ** 3 - 1e4 * ctf.defocus * s[index]);
+            env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
+          }
+          if (ctf.dE) {
+            const dETerm = Math.PI * ctf.cc * wl * s[index] * s[index] * ctf.dE / ctf.voltage;
+            env *= Math.exp(-(dETerm ** 2) / (16 * Math.log(2)) * 1e8);
+          }
+          if (ctf.dI) {
+            const dITerm = Math.PI * ctf.cc * wl * s[index] * s[index] * ctf.dI;
+            env *= Math.exp(-(dITerm ** 2) / (4 * Math.log(2)) * 1e2);
+          }
+          if (ctf.dZ) env *= j0(Math.PI * ctf.dZ * wl * s[index] * s[index]);
+          if (ctf.dXY) env *= sinc(Math.PI * ctf.dXY * s[index]);
+          let ctfValue = options.envOnly ? env : Math.sin(gamma) * env;
+          if (!options.envOnly && ctf.ctf_type === "CTF^2") ctfValue *= ctfValue;
+          if (!options.envOnly && ctf.ctf_type === "|CTF|") ctfValue = Math.abs(ctfValue);
+          values[index] = ctfValue;
+        }
+
+        const shifted = fftShift1D(values);
+        const re = Float64Array.from(shifted);
+        const im = new Float64Array(size);
+        fftInPlace(re, im, true);
+        const psfCentered = fftShift1D(re);
+        let norm = 0;
+        for (let index = 0; index < psfCentered.length; index += 1) {
+          norm += psfCentered[index] * psfCentered[index];
+        }
+        norm = Math.sqrt(norm) || 1;
+        const psf = new Float64Array(psfCentered.length);
+        const x = new Float64Array(psfCentered.length);
+        for (let index = 0; index < psfCentered.length; index += 1) {
+          x[index] = (index - size / 2) * ctf.apix;
+          psf[index] = psfCentered[index] / norm;
+        }
+        return { x, psf };
+      }
+
+      function psf2d(ctf, options = {}) {
+        const map = ctf2d(ctf, { plotS2: false, envOnly: options.envOnly });
+        const shifted = fftShift2DFlat(map.flat, map.size);
+        const re = Float64Array.from(shifted);
+        const im = new Float64Array(map.size * map.size);
+        fft2D(re, im, map.size, map.size, true);
+        const centered = fftShift2DFlat(re, map.size);
+        let maxAbs = 0;
+        for (let index = 0; index < centered.length; index += 1) {
+          maxAbs = Math.max(maxAbs, Math.abs(centered[index]));
+        }
+        const scale = maxAbs || 1;
+        const flat = new Float64Array(centered.length);
+        for (let index = 0; index < centered.length; index += 1) {
+          flat[index] = centered[index] / scale;
+        }
+        return { size: map.size, axis: centeredAxis(map.size, ctf.apix), flat };
+      }
+
+      function ctf2d(ctf, options = {}) {
+        const size = clampInt(ctf.imagesize * ctf.over_sample, 16, 4096);
+        const sNyquist = 1 / (2 * ctf.apix);
+        const wl = waveLengthAngstrom(ctf.voltage);
+        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
+        const flat = new Float64Array(size * size);
+        const axis = new Float64Array(size);
+        let ds = null;
+        let ds2 = null;
+
+        if (options.plotS2) {
+          ds2 = (sNyquist * sNyquist) / (Math.floor(ctf.imagesize / 2) * ctf.over_sample);
+          for (let index = 0; index < size; index += 1) {
+            axis[index] = (index - size / 2) * ds2;
+          }
+        } else {
+          ds = sNyquist / (Math.floor(ctf.imagesize / 2) * ctf.over_sample);
+          for (let index = 0; index < size; index += 1) {
+            axis[index] = (index - size / 2) * ds;
+          }
+        }
+
+        for (let row = 0; row < size; row += 1) {
+          for (let col = 0; col < size; col += 1) {
+            const sx = axis[col];
+            const sy = axis[row];
+            const theta = -Math.atan2(sy, sx);
+            const s2 = options.plotS2 ? Math.hypot(sx, sy) : (sx * sx + sy * sy);
+            const s = Math.sqrt(s2);
+            const defocus2d = ctf.defocus + ctf.dfdiff / 2 * Math.cos(2 * (theta - ctf.dfang * Math.PI / 180));
+            const gamma = 2 * Math.PI * (-0.5 * defocus2d * 1e4 * wl * s2 + 0.25 * ctf.cs * 1e7 * wl ** 3 * s2 * s2) - phaseShift;
+            let env = 1;
+            if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2 / 4);
+            if (ctf.alpha) {
+              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * ctf.defocus * s);
+              env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
+            }
+            if (ctf.dE) {
+              const dETerm = Math.PI * ctf.cc * wl * s * s * ctf.dE / ctf.voltage;
+              env *= Math.exp(-(dETerm ** 2) / (16 * Math.log(2)) * 1e8);
+            }
+            if (ctf.dI) {
+              const dITerm = Math.PI * ctf.cc * wl * s * s * ctf.dI;
+              env *= Math.exp(-(dITerm ** 2) / (4 * Math.log(2)) * 1e2);
+            }
+            if (ctf.dZ) env *= j0(Math.PI * ctf.dZ * wl * s * s);
+            if (ctf.dXY) env *= sinc(Math.PI * ctf.dXY * s);
+            let value = options.envOnly ? env : Math.sin(gamma) * env;
+            if (!options.envOnly && ctf.ctf_type === "CTF^2") value *= value;
+            if (!options.envOnly && ctf.ctf_type === "|CTF|") value = Math.abs(value);
+            flat[row * size + col] = value;
+          }
+        }
+
+        return { size, ds, ds2, axis, flat };
+      }
+
+      function ctf2dForImage(ctf, width, height, options = {}) {
+        const sNyquist = 1 / (2 * ctf.apix);
+        const wl = waveLengthAngstrom(ctf.voltage);
+        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
+        const flat = new Float64Array(width * height);
+        const xDenom = Math.max(1, Math.floor(width / 2));
+        const yDenom = Math.max(1, Math.floor(height / 2));
+        const dsx = sNyquist / xDenom;
+        const dsy = sNyquist / yDenom;
+        const axisX = new Float64Array(width);
+        const axisY = new Float64Array(height);
+
+        for (let col = 0; col < width; col += 1) {
+          axisX[col] = (col - width / 2) * dsx;
+        }
+        for (let row = 0; row < height; row += 1) {
+          axisY[row] = (row - height / 2) * dsy;
+        }
+
+        for (let row = 0; row < height; row += 1) {
+          const sy = axisY[row];
+          for (let col = 0; col < width; col += 1) {
+            const sx = axisX[col];
+            const theta = -Math.atan2(sy, sx);
+            const s2 = sx * sx + sy * sy;
+            const s = Math.sqrt(s2);
+            const defocus2d = ctf.defocus + ctf.dfdiff / 2 * Math.cos(2 * (theta - ctf.dfang * Math.PI / 180));
+            const gamma = 2 * Math.PI * (-0.5 * defocus2d * 1e4 * wl * s2 + 0.25 * ctf.cs * 1e7 * wl ** 3 * s2 * s2) - phaseShift;
+            let env = 1;
+            if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2 / 4);
+            if (ctf.alpha) {
+              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * ctf.defocus * s);
+              env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
+            }
+            if (ctf.dE) {
+              const dETerm = Math.PI * ctf.cc * wl * s * s * ctf.dE / ctf.voltage;
+              env *= Math.exp(-(dETerm ** 2) / (16 * Math.log(2)) * 1e8);
+            }
+            if (ctf.dI) {
+              const dITerm = Math.PI * ctf.cc * wl * s * s * ctf.dI;
+              env *= Math.exp(-(dITerm ** 2) / (4 * Math.log(2)) * 1e2);
+            }
+            if (ctf.dZ) env *= j0(Math.PI * ctf.dZ * wl * s * s);
+            if (ctf.dXY) env *= sinc(Math.PI * ctf.dXY * s);
+            let value = options.envOnly ? env : Math.sin(gamma) * env;
+            if (!options.envOnly && ctf.ctf_type === "CTF^2") value *= value;
+            if (!options.envOnly && ctf.ctf_type === "|CTF|") value = Math.abs(value);
+            flat[row * width + col] = value;
+          }
+        }
+
+        return { width, height, flat };
+      }
+
+      function computeRadialProfile(flat, size) {
+        const radiusMax = Math.min(size / 2, size / 2) + 1;
+        const profile = new Float64Array(Math.floor(radiusMax));
+        const center = size / 2;
+        for (let radius = 0; radius < profile.length; radius += 1) {
+          let sum = 0;
+          let samples = 0;
+          for (let degree = 0; degree < 360; degree += 1) {
+            const theta = degree * Math.PI / 180;
+            const y = center + radius * Math.sin(theta);
+            const x = center + radius * Math.cos(theta);
+            sum += bilinearSample(flat, size, x, y);
+            samples += 1;
+          }
+          profile[radius] = samples ? sum / samples : 0;
+        }
+        return profile;
+      }
+
+      function bilinearSample(flat, size, x, y) {
+        const x0 = Math.max(0, Math.min(size - 1, Math.floor(x)));
+        const y0 = Math.max(0, Math.min(size - 1, Math.floor(y)));
+        const x1 = Math.max(0, Math.min(size - 1, x0 + 1));
+        const y1 = Math.max(0, Math.min(size - 1, y0 + 1));
+        const dx = x - x0;
+        const dy = y - y0;
+        const v00 = flat[y0 * size + x0];
+        const v10 = flat[y0 * size + x1];
+        const v01 = flat[y1 * size + x0];
+        const v11 = flat[y1 * size + x1];
+        return v00 * (1 - dx) * (1 - dy) + v10 * dx * (1 - dy) + v01 * (1 - dx) * dy + v11 * dx * dy;
+      }
+
+      function normalizeFlat(flat) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (let index = 0; index < flat.length; index += 1) {
+          min = Math.min(min, flat[index]);
+          max = Math.max(max, flat[index]);
+        }
+        const span = max - min || 1;
+        const norm = new Float64Array(flat.length);
+        for (let index = 0; index < flat.length; index += 1) {
+          norm[index] = (flat[index] - min) / span;
+        }
+        return norm;
+      }
+
+      function flatRange(flat) {
+        let min = Infinity;
+        let max = -Infinity;
+        for (let index = 0; index < flat.length; index += 1) {
+          min = Math.min(min, flat[index]);
+          max = Math.max(max, flat[index]);
+        }
+        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+          return { min: 0, max: 1 };
+        }
+        if (min === max) {
+          return { min: min - 0.5, max: max + 0.5 };
+        }
+        return { min, max };
+      }
+
+      function applyCtfToImage(imageFlat, ctfFlat, width, height = width, cropWidth = width, cropHeight = height) {
+        const re = Float64Array.from(imageFlat);
+        const im = new Float64Array(width * height);
+        fft2D(re, im, width, height, false);
+        const shifted = fftShift2DFlat(ctfFlat, width, height);
+        for (let index = 0; index < re.length; index += 1) {
+          re[index] *= shifted[index];
+          im[index] *= shifted[index];
+        }
+        fft2D(re, im, width, height, true);
+        const out = new Float64Array(cropWidth * cropHeight);
+        for (let row = 0; row < cropHeight; row += 1) {
+          for (let col = 0; col < cropWidth; col += 1) {
+            out[row * cropWidth + col] = re[row * width + col];
+          }
+        }
+        return out;
+      }
+
+      function padImageFlat(flat, sourceWidth, sourceHeight, paddedWidth, paddedHeight) {
+        if (sourceWidth === paddedWidth && sourceHeight === paddedHeight) {
+          return Float64Array.from(flat);
+        }
+        const padded = new Float64Array(paddedWidth * paddedHeight);
+        for (let row = 0; row < sourceHeight; row += 1) {
+          const sourceOffset = row * sourceWidth;
+          const targetOffset = row * paddedWidth;
+          padded.set(flat.slice(sourceOffset, sourceOffset + sourceWidth), targetOffset);
+        }
+        return padded;
+      }
+
+      function makePatternImage(mode, size) {
+        const out = new Float64Array(size * size);
+        const center = size / 2;
+        for (let row = 0; row < size; row += 1) {
+          for (let col = 0; col < size; col += 1) {
+            const index = row * size + col;
+            const dx = col - center;
+            const dy = row - center;
+            const radius = Math.hypot(dx, dy);
+            if (mode === "delta") {
+              out[index] = row === Math.floor(center) && col === Math.floor(center) ? 1 : 0;
+            } else if (mode === "checkerboard") {
+              out[index] = ((Math.floor(row / 16) + Math.floor(col / 16)) % 2 === 0) ? 1 : 0.15;
+            } else if (mode === "rings") {
+              out[index] = 0.5 + 0.5 * Math.cos(radius / 6);
+            } else {
+              out[index] = Math.max(0, 1 - radius / center) * (0.4 + 0.6 * (col / (size - 1)));
+            }
+          }
+        }
+        return normalizeFlat(out);
+      }
+
+      function fitRectWithinSquare(width, height, size) {
+        const scale = Math.min(size / width, size / height);
+        const drawWidth = Math.max(1, Math.round(width * scale));
+        const drawHeight = Math.max(1, Math.round(height * scale));
+        const offsetX = Math.floor((size - drawWidth) / 2);
+        const offsetY = Math.floor((size - drawHeight) / 2);
+        return { drawWidth, drawHeight, offsetX, offsetY };
+      }
+
+      async function loadImageFromUrl(url) {
+        return new Promise((resolve, reject) => {
+          const image = new Image();
+          image.crossOrigin = "anonymous";
+          image.onload = () => {
+            const width = Math.max(1, Math.round(image.naturalWidth || image.width || 0));
+            const height = Math.max(1, Math.round(image.naturalHeight || image.height || 0));
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const context = canvas.getContext("2d", { willReadFrequently: true });
+            context.clearRect(0, 0, width, height);
+            context.drawImage(image, 0, 0, width, height);
+            const data = context.getImageData(0, 0, width, height).data;
+            const flat = new Float64Array(width * height);
+            for (let index = 0; index < flat.length; index += 1) {
+              const offset = index * 4;
+              flat[index] = (0.2126 * data[offset] + 0.7152 * data[offset + 1] + 0.0722 * data[offset + 2]) / 255;
+            }
+            resolve({ flat, width, height });
+          };
+          image.onerror = () => reject(new Error("Image could not be loaded. The host may block CORS or the URL may be invalid."));
+          image.src = url;
+        });
+      }
+
+      function matrixRows(flat, width, height = width) {
+        const rows = [];
+        for (let row = 0; row < height; row += 1) {
+          rows.push(Array.from(flat.slice(row * width, (row + 1) * width)));
+        }
+        return rows;
+      }
+
+      function centeredAxis(size, step) {
+        const axis = new Array(size);
+        for (let index = 0; index < size; index += 1) {
+          axis[index] = (index - size / 2) * step;
+        }
+        return axis;
+      }
+
+      function varyingKeys(ctfs) {
+        const keys = ["voltage", "cs", "ampcontrast", "defocus", "dfdiff", "dfang", "phaseshift", "bfactor", "alpha", "cc", "dE", "dI", "dZ", "dXY", "apix", "imagesize", "over_sample", "ctf_type"];
+        if (ctfs.length < 2) return [];
+        return keys.filter((key) => {
+          const first = ctfs[0][key];
+          return ctfs.slice(1).some((ctf) => ctf[key] !== first);
+        });
+      }
+
+      function traceLabel(ctf, index, diffKeys) {
+        if (!diffKeys.length) return `CTF ${index + 1}`;
+        return diffKeys.map((key) => `${key}=${formatCompact(ctf[key])}`).join(" / ");
+      }
+
+      function formatCompact(value) {
+        if (typeof value === "string") return value;
+        if (Math.abs(value) >= 100 || (Math.abs(value) < 0.001 && value !== 0)) return value.toExponential(3);
+        return Number(value.toFixed(5)).toString();
+      }
+
+      function renderControls() {
+        state.accordionOpen = normalizedAccordionOpen(state.count, state.accordionOpen);
+        document.getElementById("ctf-count").value = state.count;
+        document.getElementById("plot-s2").checked = state.plotS2;
+        document.getElementById("env-only").checked = state.envOnly;
+        document.getElementById("show-average").checked = state.showAvg;
+        document.getElementById("show-data").checked = state.showData;
+        document.getElementById("show-psf").checked = state.showPSF;
+        document.getElementById("show-2d").checked = state.show2D;
+        document.getElementById("rot-avg").checked = state.rotAvg;
+        document.getElementById("simulate-image").checked = state.simulateImage;
+        document.getElementById("simulate-wrong-apix").checked = state.simulateWrongApix;
+        document.getElementById("simulate-wrong-defocus").checked = state.simulateWrongDefocus;
+        document.getElementById("share-url").checked = state.shareUrl;
+        document.getElementById("show-qr").checked = state.showQr;
+        document.getElementById("image-mode").value = state.imageMode;
+        document.getElementById("image-url").value = state.imageUrl;
+        document.getElementById("share-block").hidden = !state.showQr;
+        setHidden("image-controls", !state.simulateImage);
+        setHidden("image-url-field", state.imageMode !== "url");
+        setHidden("psf-panel", !state.showPSF);
+        setHidden("ctf2d-panel", !state.show2D);
+        setHidden("psf2d-panel", !(state.showPSF && state.show2D));
+        setHidden("image-panel", !state.simulateImage);
+        setHidden("raw-data-panel", !state.showData);
+
+        const qr = document.getElementById("qr-image");
+        qr.classList.toggle("hidden", !state.showQr);
+        if (state.showQr) {
+          qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=128x128&data=${encodeURIComponent(currentUrl(buildStateQuery()))}`;
+        } else {
+          qr.removeAttribute("src");
+        }
+
+        const container = document.getElementById("ctf-list");
+        container.innerHTML = state.ctfs.map((ctf, index) => {
+          const body = `
+            <div class="field-grid">
+              <div class="field full">
+                <label>CTF type</label>
+                <select data-field="ctf_type">
+                  <option value="CTF" ${ctf.ctf_type === "CTF" ? "selected" : ""}>CTF</option>
+                  <option value="|CTF|" ${ctf.ctf_type === "|CTF|" ? "selected" : ""}>|CTF|</option>
+                  <option value="CTF^2" ${ctf.ctf_type === "CTF^2" ? "selected" : ""}>CTF^2</option>
+                </select>
+              </div>
+              ${numberField("defocus", "Defocus (µm)", ctf.defocus, 0.1)}
+              ${numberField("defocus_wrong", "Wrong defocus (µm)", ctf.defocus_wrong, 0.1)}
+              ${numberField("dfdiff", "Astigmatism mag (µm)", ctf.dfdiff, 0.01)}
+              ${numberField("dfang", "Astigmatism angle (°)", ctf.dfang, 1)}
+              ${numberField("phaseshift", "Phase shift (°)", ctf.phaseshift, 1)}
+              ${numberField("apix", "Pixel size (Å/pixel)", ctf.apix, 0.01, 0.1)}
+              ${numberField("apix_wrong", "Wrong pixel size (Å/pixel)", ctf.apix_wrong, 0.01, 0.1)}
+              ${numberField("voltage", "Voltage (kV)", ctf.voltage, 100, 10)}
+              ${numberField("cs", "Cs (mm)", ctf.cs, 0.1)}
+              ${numberField("ampcontrast", "Amplitude contrast (%)", ctf.ampcontrast, 1, 0)}
+              ${numberField("imagesize", "Image size (pixel)", ctf.imagesize, 2, 16)}
+              ${numberField("over_sample", "Over-sample", ctf.over_sample, 1, 1)}
+              ${numberField("bfactor", "B-factor (Å²)", ctf.bfactor, 10, 0)}
+              ${numberField("alpha", "Beam convergence (mrad)", ctf.alpha, 0.05, 0)}
+              ${numberField("dE", "Energy spread (eV)", ctf.dE, 0.2, 0)}
+              ${numberField("dI", "Current spread (ppm)", ctf.dI, 0.2, 0)}
+              ${numberField("cc", "Cc (mm)", ctf.cc, 0.1, 0)}
+              ${numberField("dZ", "Vertical motion (Å)", ctf.dZ, 20, 0)}
+              ${numberField("dXY", "Horizontal motion (Å)", ctf.dXY, 0.2, 0)}
+              <div class="field toggle">
+                <input data-field="show_marker" type="checkbox" ${ctf.show_marker ? "checked" : ""} />
+                <label>Show markers</label>
+              </div>
+              <div class="field toggle">
+                <input data-field="ctf_intact_first_peak" type="checkbox" ${ctf.ctf_intact_first_peak ? "checked" : ""} />
+                <label>Ignore until first peak</label>
+              </div>
+            </div>`;
+
+          return `
+            <details class="ctf-card accordion" data-index="${index}" ${state.accordionOpen[index] ? "open" : ""}>
+              <summary class="accordion-summary">
+                <span class="accordion-title">
+                  <span>CTF ${index + 1}</span>
+                </span>
+                <span class="accordion-icon">&#9656;</span>
+              </summary>
+              <div class="accordion-body">
+                ${body}
+              </div>
+            </details>
+          `;
+        }).join("");
+      }
+
+      function numberField(field, label, value, step, min) {
+        const minAttr = min !== undefined ? `min="${min}"` : "";
+        return `
+          <div class="field">
+            <label>${label}</label>
+            <input data-field="${field}" type="number" step="${step}" value="${escapeAttr(value)}" ${minAttr} />
+          </div>
+        `;
+      }
+
+      function compatibleForAverage(ctfs, keys) {
+        const first = ctfs[0];
+        return ctfs.every((ctf) => keys.every((key) => ctf[key] === first[key]));
+      }
+
+      function renderPlot1D(warnings) {
+        const xAxisLabel = state.plotS2 ? "s² (1/Å²)" : "s (1/Å)";
+        const diffKeys = varyingKeys(state.ctfs);
+        const traces = [];
+        lastRenderData = [];
+        let xMax = 0;
+        let yMin = Infinity;
+        let yMax = -Infinity;
+
+        state.ctfs.forEach((ctf, index) => {
+          const defocuses = state.ctfs.length === 1 && ctf.dfdiff ? [ctf.defocus - ctf.dfdiff / 2, ctf.defocus, ctf.defocus + ctf.dfdiff / 2] : [ctf.defocus];
+          defocuses.forEach((defocusValue, defocusIndex) => {
+            let result;
+            if (state.simulateWrongDefocus && ctf.ctf_type === "|CTF|") {
+              const ctfTmp = { ...ctf, ctf_type: "CTF" };
+              const correct = ctf1d(ctfTmp, { plotS2: state.plotS2, defocusOverride: ctf.defocus, useApixWrong: state.simulateWrongApix, envOnly: state.envOnly });
+              const wrong = ctf1d(ctfTmp, { plotS2: state.plotS2, defocusOverride: ctf.defocus_wrong, useApixWrong: state.simulateWrongApix, envOnly: false });
+              const values = new Float64Array(correct.values.length);
+              for (let row = 0; row < values.length; row += 1) {
+                const sign = -Math.sign(wrong.values[row] || 1);
+                values[row] = -correct.values[row] * sign;
+              }
+              result = { s: correct.s, s2: correct.s2, values };
+            } else {
+              result = ctf1d(ctf, { plotS2: state.plotS2, defocusOverride: defocusValue, useApixWrong: state.simulateWrongApix, envOnly: state.envOnly });
+            }
+            const x = state.plotS2 ? result.s2 : result.s;
+            const y = result.values;
+            const baseLabel = traceLabel(ctf, index, diffKeys);
+            const label = defocuses.length > 1 ? `${baseLabel} / defocus=${formatCompact(defocusValue)}` : baseLabel;
+            const color = COLORS[index % COLORS.length];
+            const dash = defocuses.length > 1 ? (["dash", "solid", "dot"][defocusIndex] || "solid") : "solid";
+            xMax = Math.max(xMax, x[x.length - 1]);
+            for (let row = 0; row < y.length; row += 1) {
+              yMin = Math.min(yMin, y[row]);
+              yMax = Math.max(yMax, y[row]);
+            }
+
+            traces.push({
+              type: "scatter",
+              mode: ctf.show_marker ? "lines+markers" : "lines",
+              name: label,
+              x: Array.from(x),
+              y: Array.from(y),
+              line: { width: defocuses.length > 1 && defocusIndex !== 1 ? 1.5 : 2.5, color, dash },
+              marker: { size: 5, color },
+              hovertemplate: `${label}<br>x=%{x:.5f}<br>CTF=%{y:.5f}<br>Res=%{customdata:.3f} Å<extra></extra>`,
+              customdata: Array.from(result.s, (value, row) => row === 0 ? 1e6 : 1 / value)
+            });
+            lastRenderData.push({ label, x: Array.from(x), s: Array.from(result.s), y: Array.from(y) });
+          });
+        });
+
+        if (state.rotAvg && state.ctfs.length === 1 && state.ctfs[0].dfdiff) {
+          const map = ctf2d(state.ctfs[0], { plotS2: state.plotS2, envOnly: state.envOnly });
+          const radial = computeRadialProfile(map.flat, map.size);
+          const axis = Array.from({ length: radial.length }, (_, index) => state.plotS2 ? index * (map.ds2 ?? 0) : index * (map.ds ?? 0));
+          const sAxis = Array.from({ length: radial.length }, (_, index) => state.plotS2 ? Math.sqrt(index * (map.ds2 ?? 0)) : index * (map.ds ?? 0));
+          traces.push({
+            type: "scatter",
+            mode: "lines",
+            name: "rotavg",
+            x: axis,
+            y: Array.from(radial),
+            line: { width: 3, color: "#b62020" },
+            hovertemplate: "rotavg<br>x=%{x:.5f}<br>CTF=%{y:.5f}<extra></extra>"
+          });
+          lastRenderData.push({ label: "rotavg", x: axis, s: sAxis, y: Array.from(radial) });
+        }
+
+        if (state.showAvg && state.ctfs.length > 1) {
+          if (!compatibleForAverage(state.ctfs, ["imagesize", "over_sample", "ctf_type", "apix"])) {
+            warnings.push("Average CTF requires matching image size, over-sample, CTF type, and pixel size across traces.");
+          } else {
+            const source = lastRenderData.slice(0, state.ctfs.length);
+            const template = source[0];
+            const avg = template.y.map((_, row) => source.reduce((sum, trace) => sum + trace.y[row], 0) / source.length);
+            traces.push({
+              type: "scatter",
+              mode: "lines",
+              name: "average",
+              x: template.x,
+              y: avg,
+              line: { width: 3, color: "#b62020" },
+              hovertemplate: "average<br>x=%{x:.5f}<br>CTF=%{y:.5f}<extra></extra>"
+            });
+            lastRenderData.push({ label: "average", x: template.x, s: template.s, y: avg });
+          }
+        }
+
+        Plotly.react("plot-1d", traces, {
+          paper_bgcolor: "rgba(0,0,0,0)",
+          plot_bgcolor: "rgba(255,252,246,0.95)",
+          margin: { l: 72, r: 24, t: 20, b: 60 },
+          xaxis: { title: xAxisLabel, range: [0, xMax], gridcolor: "rgba(95,80,60,0.1)" },
+          yaxis: { title: state.envOnly ? "Envelope" : state.ctfs.map((ctf) => ctf.ctf_type).join(" / "), range: [yMin < 0 ? Math.min(-1.05, yMin * 1.05) : 0, Math.max(1.05, yMax * 1.05)], gridcolor: "rgba(95,80,60,0.1)" },
+          legend: { orientation: "h", y: 1.12 },
+          font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+        }, { responsive: true, displaylogo: false });
+      }
+
+      function renderPSFPanel(warnings) {
+        if (!state.showPSF) {
+          return;
+        }
+        const traces = state.ctfs.map((ctf, index) => {
+          const result = psf1d(ctf, { envOnly: state.envOnly });
+          return {
+            type: "scatter",
+            mode: ctf.show_marker ? "lines+markers" : "lines",
+            name: traceLabel(ctf, index, varyingKeys(state.ctfs)),
+            x: Array.from(result.x),
+            y: Array.from(result.psf),
+            line: { width: 2, color: COLORS[index % COLORS.length] },
+            marker: { size: 4, color: COLORS[index % COLORS.length] },
+            hovertemplate: "x=%{x:.3f} Å<br>PSF=%{y:.5f}<extra></extra>"
+          };
+        });
+        if (state.showAvg && state.ctfs.length > 1 && compatibleForAverage(state.ctfs, ["imagesize", "ctf_type", "apix"])) {
+          const template = psf1d(state.ctfs[0], { envOnly: state.envOnly });
+          const stack = state.ctfs.map((ctf) => Array.from(psf1d(ctf, { envOnly: state.envOnly }).psf));
+          const avg = stack[0].map((_, row) => stack.reduce((sum, values) => sum + values[row], 0) / stack.length);
+          traces.push({ type: "scatter", mode: "lines", name: "average", x: Array.from(template.x), y: avg, line: { width: 3, color: "#b62020" } });
+        } else if (state.showAvg && state.ctfs.length > 1) {
+          warnings.push("Average PSF requires matching image size, CTF type, and pixel size.");
+        }
+
+        Plotly.react("plot-psf", traces, {
+          paper_bgcolor: "rgba(0,0,0,0)",
+          plot_bgcolor: "rgba(255,252,246,0.95)",
+          margin: { l: 70, r: 24, t: 20, b: 60 },
+          xaxis: { title: "x (Å)", gridcolor: "rgba(95,80,60,0.1)" },
+          yaxis: { title: "PSF", gridcolor: "rgba(95,80,60,0.1)" },
+          legend: { orientation: "h", y: 1.12 },
+          font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+        }, { responsive: true, displaylogo: false });
+      }
+
+      function render2DPanel(warnings) {
+        if (!state.show2D) {
+          document.getElementById("plot-2d-grid").innerHTML = "";
+          return;
+        }
+        const grid = document.getElementById("plot-2d-grid");
+        const cards = [];
+        state.ctfs.forEach((ctf, index) => {
+          cards.push({ id: `ctf2d-${index}`, title: traceLabel(ctf, index, varyingKeys(state.ctfs)) });
+        });
+        if (state.showAvg && state.ctfs.length > 1) {
+          cards.push({ id: "ctf2d-average", title: "average" });
+        }
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
+
+        const maps = state.ctfs.map((ctf) => ctf2d(ctf, { plotS2: state.plotS2, envOnly: state.envOnly }));
+        maps.forEach((map, index) => {
+          const step = state.plotS2 ? (map.ds2 ?? 1) : (map.ds ?? 1);
+          const axis = centeredAxis(map.size, step);
+          Plotly.react(`ctf2d-${index}`, [{
+            type: "heatmap",
+            z: matrixRows(map.flat, map.size),
+            x: axis,
+            y: axis,
+            colorscale: "Greys",
+            reversescale: true,
+            showscale: false,
+            hovertemplate: "x=%{x:.4f}<br>y=%{y:.4f}<br>CTF=%{z:.5f}<extra></extra>"
+          }], {
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(255,252,246,0.95)",
+            margin: { l: 46, r: 10, t: 10, b: 42 },
+            xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
+            yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+            font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+          }, { responsive: true, displaylogo: false });
+        });
+
+        if (state.showAvg && state.ctfs.length > 1) {
+          if (!compatibleForAverage(state.ctfs, ["imagesize", "over_sample", "ctf_type", "apix"])) {
+            warnings.push("Average 2D CTF requires matching image size, over-sample, CTF type, and pixel size.");
+          } else {
+            const template = maps[0];
+            const avg = new Float64Array(template.flat.length);
+            maps.forEach((map) => {
+              for (let index = 0; index < avg.length; index += 1) {
+                avg[index] += map.flat[index];
+              }
+            });
+            for (let index = 0; index < avg.length; index += 1) {
+              avg[index] /= maps.length;
+            }
+            const step = state.plotS2 ? (template.ds2 ?? 1) : (template.ds ?? 1);
+            const axis = centeredAxis(template.size, step);
+            Plotly.react("ctf2d-average", [{ type: "heatmap", z: matrixRows(avg, template.size), x: axis, y: axis, colorscale: "Greys", reversescale: true, showscale: false, hovertemplate: "x=%{x:.4f}<br>y=%{y:.4f}<br>CTF=%{z:.5f}<extra></extra>" }], {
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(255,252,246,0.95)",
+              margin: { l: 46, r: 10, t: 10, b: 42 },
+              xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
+              yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+              font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+            }, { responsive: true, displaylogo: false });
+          }
+        }
+      }
+
+      function render2DPSFPanel(warnings) {
+        if (!(state.showPSF && state.show2D)) {
+          document.getElementById("plot-psf2d-grid").innerHTML = "";
+          return;
+        }
+        const grid = document.getElementById("plot-psf2d-grid");
+        const cards = state.ctfs.map((ctf, index) => ({ id: `psf2d-${index}`, title: traceLabel(ctf, index, varyingKeys(state.ctfs)) }));
+        if (state.showAvg && state.ctfs.length > 1) {
+          cards.push({ id: "psf2d-average", title: "average" });
+        }
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
+
+        const maps = state.ctfs.map((ctf) => psf2d(ctf, { envOnly: state.envOnly }));
+        maps.forEach((map, index) => {
+          Plotly.react(`psf2d-${index}`, [{
+            type: "heatmap",
+            z: matrixRows(map.flat, map.size),
+            x: map.axis,
+            y: map.axis,
+            colorscale: "Greys",
+            reversescale: true,
+            showscale: false,
+            zauto: false,
+            zmin: -1,
+            zmax: 1,
+            hovertemplate: "x=%{x:.3f} Å<br>y=%{y:.3f} Å<br>PSF=%{z:.5f}<extra></extra>"
+          }], {
+            paper_bgcolor: "rgba(0,0,0,0)",
+            plot_bgcolor: "rgba(255,252,246,0.95)",
+            margin: { l: 46, r: 10, t: 10, b: 42 },
+            xaxis: { title: "x (Å)", constrain: "domain" },
+            yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+            font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+          }, { responsive: true, displaylogo: false });
+        });
+
+        if (state.showAvg && state.ctfs.length > 1) {
+          if (!compatibleForAverage(state.ctfs, ["imagesize", "over_sample", "ctf_type", "apix"])) {
+            warnings.push("Average 2D PSF requires matching image size, over-sample, CTF type, and pixel size.");
+          } else {
+            const template = maps[0];
+            const avg = new Float64Array(template.flat.length);
+            maps.forEach((map) => {
+              for (let index = 0; index < avg.length; index += 1) {
+                avg[index] += map.flat[index];
+              }
+            });
+            for (let index = 0; index < avg.length; index += 1) {
+              avg[index] /= maps.length;
+            }
+            Plotly.react("psf2d-average", [{
+              type: "heatmap",
+              z: matrixRows(avg, template.size),
+              x: template.axis,
+              y: template.axis,
+              colorscale: "Greys",
+              reversescale: true,
+              showscale: false,
+              zauto: false,
+              zmin: -1,
+              zmax: 1,
+              hovertemplate: "x=%{x:.3f} Å<br>y=%{y:.3f} Å<br>PSF=%{z:.5f}<extra></extra>"
+            }], {
+              paper_bgcolor: "rgba(0,0,0,0)",
+              plot_bgcolor: "rgba(255,252,246,0.95)",
+              margin: { l: 46, r: 10, t: 10, b: 42 },
+              xaxis: { title: "x (Å)", constrain: "domain" },
+              yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+              font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+            }, { responsive: true, displaylogo: false });
+          }
+        }
+      }
+
+      async function renderImagePanel(warnings, nonce) {
+        if (!state.simulateImage) {
+          document.getElementById("image-grid").innerHTML = "";
+          return;
+        }
+        const size = clampInt(state.ctfs[0].imagesize * state.ctfs[0].over_sample, 16, 1024);
+        let imageData;
+        if (state.imageMode === "url") {
+          if (!state.imageUrl) {
+            warnings.push("Image simulation is set to URL mode, but no URL was provided.");
+            imageData = { flat: makePatternImage("delta", size), width: size, height: size };
+          } else {
+            try {
+              imageData = await loadImageFromUrl(state.imageUrl);
+            } catch (error) {
+              warnings.push(error.message);
+              imageData = { flat: makePatternImage("delta", size), width: size, height: size };
+            }
+          }
+        } else {
+          imageData = { flat: makePatternImage(state.imageMode, size), width: size, height: size };
+        }
+        if (nonce !== renderNonce) {
+          return;
+        }
+
+        const cards = [{ id: "image-original", title: "original" }].concat(state.ctfs.map((ctf, index) => ({ id: `image-${index}`, title: traceLabel(ctf, index, varyingKeys(state.ctfs)) })));
+        if (state.showAvg && state.ctfs.length > 1) {
+          cards.push({ id: "image-average", title: "average" });
+        }
+        const grid = document.getElementById("image-grid");
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card image-display-card" style="--image-aspect:${imageData.width} / ${imageData.height};"></div></div>`).join("");
+
+        if (state.imageMode === "url" && state.imageUrl) {
+          renderNativeImage("image-original", state.imageUrl, "Original image");
+        } else {
+          renderImageHeatmap("image-original", imageData.flat, imageData.width, imageData.height, "Original image");
+        }
+        const outputs = [];
+        for (let index = 0; index < state.ctfs.length; index += 1) {
+          const paddedWidth = state.imageMode === "url" ? nextPow2(Math.max(16, imageData.width * state.ctfs[index].over_sample)) : imageData.width;
+          const paddedHeight = state.imageMode === "url" ? nextPow2(Math.max(16, imageData.height * state.ctfs[index].over_sample)) : imageData.height;
+          const paddedImage = padImageFlat(imageData.flat, imageData.width, imageData.height, paddedWidth, paddedHeight);
+          const ctfMap = ctf2dForImage(state.ctfs[index], paddedWidth, paddedHeight, { envOnly: state.envOnly });
+          const filtered = applyCtfToImage(paddedImage, ctfMap.flat, paddedWidth, paddedHeight, imageData.width, imageData.height);
+          outputs.push({ flat: filtered, width: imageData.width, height: imageData.height });
+          renderImageHeatmap(`image-${index}`, filtered, imageData.width, imageData.height, `Filtered ${index + 1}`);
+        }
+        if (state.showAvg && outputs.length > 1) {
+          const avg = new Float64Array(outputs[0].flat.length);
+          outputs.forEach((output) => {
+            for (let index = 0; index < avg.length; index += 1) {
+              avg[index] += output.flat[index];
+            }
+          });
+          for (let index = 0; index < avg.length; index += 1) {
+            avg[index] /= outputs.length;
+          }
+          renderImageHeatmap("image-average", avg, outputs[0].width, outputs[0].height, "Average filtered");
+        }
+      }
+
+      function renderNativeImage(targetId, src, alt) {
+        const container = document.getElementById(targetId);
+        container.classList.add("native-image-card");
+        container.innerHTML = `<img src="${escapeAttr(src)}" alt="${escapeAttr(alt)}" loading="eager" decoding="async" referrerpolicy="no-referrer" />`;
+      }
+
+      function renderImageHeatmap(targetId, flat, width, height, title) {
+        const container = document.getElementById(targetId);
+        container.classList.remove("native-image-card");
+        container.innerHTML = "";
+        const range = flatRange(flat);
+        Plotly.react(targetId, [{
+          type: "heatmap",
+          z: matrixRows(flat, width, height),
+          colorscale: "Greys",
+          reversescale: true,
+          showscale: false,
+          zauto: false,
+          zmin: range.min,
+          zmax: range.max,
+          hovertemplate: "x=%{x}<br>y=%{y}<br>value=%{z:.5f}<extra></extra>"
+        }], {
+          paper_bgcolor: "rgba(0,0,0,0)",
+          plot_bgcolor: "rgba(255,252,246,0.95)",
+          margin: { l: 0, r: 0, t: 0, b: 0 },
+          xaxis: { visible: false, constrain: "domain" },
+          yaxis: { visible: false, autorange: "reversed", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
+          annotations: []
+        }, { responsive: true, displaylogo: false });
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById("table-body");
+        tbody.innerHTML = "";
+        if (!state.showData || lastRenderData.length === 0) {
+          return;
+        }
+        const limit = 160;
+        const rows = [];
+        lastRenderData.forEach((trace) => {
+          const stride = Math.max(1, Math.floor(trace.x.length / limit));
+          for (let index = 0; index < trace.x.length; index += stride) {
+            const resolution = index === 0 || trace.s[index] === 0 ? 1e6 : 1 / trace.s[index];
+            rows.push(`<tr><td>${trace.label}</td><td>${trace.x[index].toFixed(6)}</td><td>${resolution.toFixed(3)}</td><td>${trace.y[index].toFixed(6)}</td></tr>`);
+          }
+        });
+        tbody.innerHTML = rows.join("");
+      }
+
+      function downloadCsv() {
+        if (lastRenderData.length === 0) return;
+        const lines = ["trace,x,resolution_a,ctf"];
+        lastRenderData.forEach((trace) => {
+          for (let index = 0; index < trace.x.length; index += 1) {
+            const resolution = index === 0 || trace.s[index] === 0 ? 1e6 : 1 / trace.s[index];
+            lines.push([trace.label, trace.x[index], resolution, trace.y[index]].join(","));
+          }
+        });
+        const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "ctf_curve_table.csv";
+        anchor.click();
+        URL.revokeObjectURL(url);
+      }
+
+      async function render() {
+        renderNonce += 1;
+        const nonce = renderNonce;
+        state.count = clampInt(state.count, 1, 6);
+        while (state.ctfs.length < state.count) {
+          state.ctfs.push(cloneCtf());
+        }
+        state.ctfs = state.ctfs.slice(0, state.count).map((ctf) => ({ ...cloneCtf(), ...ctf }));
+        renderControls();
+        const warnings = [];
+        renderPlot1D(warnings);
+        renderTable();
+        renderPSFPanel(warnings);
+        render2DPanel(warnings);
+        render2DPSFPanel(warnings);
+        await renderImagePanel(warnings, nonce);
+        if (nonce !== renderNonce) {
+          return;
+        }
+        const warningBox = document.getElementById("app-warning");
+        warningBox.hidden = warnings.length === 0;
+        warningBox.textContent = warnings.join(" ");
+        if (state.shareUrl) {
+          syncUrl();
+        } else {
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      }
+
+      function onSidebarInput(event) {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {
+          return;
+        }
+
+        const toggleMap = {
+          "plot-s2": "plotS2",
+          "env-only": "envOnly",
+          "show-average": "showAvg",
+          "show-data": "showData",
+          "show-psf": "showPSF",
+          "show-2d": "show2D",
+          "rot-avg": "rotAvg",
+          "simulate-image": "simulateImage",
+          "simulate-wrong-apix": "simulateWrongApix",
+          "simulate-wrong-defocus": "simulateWrongDefocus",
+          "share-url": "shareUrl",
+          "show-qr": "showQr"
+        };
+
+        if (target.id === "ctf-count") {
+          state.count = clampInt(Number(target.value), 1, 6);
+          state.accordionOpen = normalizedAccordionOpen(state.count, state.accordionOpen);
+          void render();
+          return;
+        }
+        if (target.id in toggleMap) {
+          state[toggleMap[target.id]] = target.checked;
+          void render();
+          return;
+        }
+        if (target.id === "image-mode") {
+          state.imageMode = target.value;
+          void render();
+          return;
+        }
+        if (target.id === "image-url") {
+          state.imageUrl = target.value.trim();
+          void render();
+          return;
+        }
+
+        const card = target.closest("[data-index]");
+        if (!card) {
+          return;
+        }
+        const index = Number(card.getAttribute("data-index"));
+        const field = target.getAttribute("data-field");
+        if (!field) {
+          return;
+        }
+        if (target instanceof HTMLSelectElement) {
+          state.ctfs[index][field] = target.value;
+        } else if (target.type === "checkbox") {
+          state.ctfs[index][field] = target.checked ? 1 : 0;
+        } else {
+          const numericValue = Number(target.value);
+          state.ctfs[index][field] = Number.isFinite(numericValue) ? numericValue : DEFAULT_CTF[field];
+        }
+        if (INTEGER_CTF_FIELDS.has(field)) {
+          state.ctfs[index][field] = field === "over_sample" ? clampInt(state.ctfs[index][field], 1, 6) : clampInt(state.ctfs[index][field], 16, 4096);
+        }
+        if (field === "defocus") {
+          state.ctfs[index].defocus_wrong = state.ctfs[index].defocus_wrong ?? state.ctfs[index].defocus;
+        }
+        void render();
+      }
+
+      function onAccordionToggle(event) {
+        const details = event.target;
+        if (!(details instanceof HTMLDetailsElement)) {
+          return;
+        }
+        if (!details.matches(".ctf-card.accordion[data-index]")) {
+          return;
+        }
+        const index = Number(details.getAttribute("data-index"));
+        state.accordionOpen = normalizedAccordionOpen(state.count, state.accordionOpen);
+        state.accordionOpen[index] = details.open;
+      }
+
+      document.querySelector(".sidebar").addEventListener("change", onSidebarInput);
+      document.querySelector(".sidebar").addEventListener("toggle", onAccordionToggle, true);
+      document.getElementById("reset-state").addEventListener("click", resetState);
+      document.getElementById("download-csv").addEventListener("click", downloadCsv);
+
+      initializeSidebarWidth();
+      setupSidebarResizer();
+      renderFormulaBanner();
+      window.addEventListener("load", renderFormulaBanner);
+      void render();
+    </script>
+  </body>
+</html>
