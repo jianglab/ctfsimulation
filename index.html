@@ -565,6 +565,7 @@
           grid-template-columns: 1fr;
         }
       }
+
     </style>
   </head>
   <body>
@@ -651,17 +652,17 @@
                 <select id="image-mode">
                   <option value="delta">Delta function</option>
                   <option value="checkerboard">Checkerboard</option>
-                  <option value="rings">Concentric rings</option>
-                  <option value="gradient">Gradient face</option>
+                  <option value="lensFocus">Lens Focus Test Chart</option>
+                  <option value="tvTest">TV Test Signal</option>
+                  <option value="spiralRainbow">Spiral Rainbow Squares</option>
                   <option value="url">External image URL</option>
                 </select>
               </div>
               <div class="field full hidden" id="image-url-field">
                 <label for="image-url">Image URL</label>
-                <input id="image-url" type="text" placeholder="https://example.com/image.png" />
+                <input id="image-url" type="text" placeholder="https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg" />
               </div>
             </div>
-            <p class="mini-note">Remote image loading depends on the source allowing CORS. Generated patterns always work offline.</p>
           </div>
         </div>
         <div class="panel formula">
@@ -818,16 +819,106 @@
         shareUrl: false,
         showQr: false,
         imageMode: "delta",
-        imageUrl: "",
+        imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg",
         accordionOpen: [true],
         ctfs: [structuredClone(DEFAULT_CTF)]
       };
 
+      const PRESET_IMAGE_URLS = {
+        lensFocus: "WWW/test-images/lens-focus-test-chart.jpg",
+        tvTest: "WWW/test-images/tv-test-signal.png",
+        spiralRainbow: "WWW/test-images/spiral-rainbow-squares.jpg"
+      };
+
       const INTEGER_CTF_FIELDS = new Set(["imagesize", "over_sample"]);
       const SIDEBAR_WIDTH_KEY = "ctf-sidebar-width";
+      const IMAGE_URL_CACHE = new Map();
+      const FILTERED_IMAGE_CACHE = new Map();
+      const FILTERED_IMAGE_CACHE_MAX = 24;
+      const TOOLTIP_BY_ID = {
+        "ctf-count": "Number of CTF curves to show.",
+        "show-average": "Plot the average CTF when multiple curves share compatible settings.",
+        "env-only": "Show only envelope terms instead of the full oscillatory CTF.",
+        "show-data": "Show sampled raw CTF values in a table and CSV export.",
+        "show-psf": "Show point spread function derived from inverse FFT of the CTF.",
+        "show-2d": "Render 2D CTF maps for each configuration.",
+        "rot-avg": "For single astigmatic CTF, overlay rotational average of the 2D map.",
+        "simulate-image": "Apply CTF filtering to a source image in Fourier space.",
+        "simulate-wrong-apix": "Simulate magnification/pixel-size calibration error effects.",
+        "simulate-wrong-defocus": "For |CTF| mode, simulate phase-correction error from wrong defocus.",
+        "plot-s2": "Use s^2 instead of s on x-axis/radius.",
+        "share-url": "Store current state in URL so plots can be reproduced by sharing the link.",
+        "show-qr": "Display a QR code for the sharable URL.",
+        "image-mode": "Choose procedural, preset, or external URL image source.",
+        "image-url": "Direct image URL. Must allow cross-origin loading in browser."
+      };
+      const TOOLTIP_BY_FIELD = {
+        ctf_type: "CTF display mode: CTF, |CTF|, or CTF^2.",
+        defocus: "Defocus in um. Positive under-focus, negative over-focus.",
+        defocus_wrong: "Alternative defocus used for wrong-defocus simulation.",
+        dfdiff: "Astigmatism magnitude (max defocus - min defocus) in um.",
+        dfang: "In-plane angle of maximal defocus direction in degrees.",
+        phaseshift: "Phase shift introduced by phase plate in degrees.",
+        apix: "Pixel size in A/pixel. Nyquist is 1 / (2 * pixel size).",
+        apix_wrong: "Alternative pixel size used for wrong pixel-size simulation.",
+        voltage: "Accelerating voltage in kV. Determines electron wavelength.",
+        cs: "Spherical aberration coefficient Cs in mm.",
+        ampcontrast: "Amplitude contrast in percent (0-100).",
+        imagesize: "Image size in pixels.",
+        over_sample: "Upsampling factor in Fourier calculation (1x, 2x, ...).",
+        bfactor: "B-factor envelope damping term in A^2.",
+        alpha: "Beam convergence semi-angle in mrad.",
+        dE: "Energy spread in eV.",
+        dI: "Objective lens current spread in ppm.",
+        cc: "Chromatic aberration coefficient Cc in mm.",
+        dZ: "Sample vertical motion in A.",
+        dXY: "Sample horizontal motion in A.",
+        show_marker: "Show markers on 1D CTF traces.",
+        ctf_intact_first_peak: "Ignore CTF behavior until first peak (Relion-style option)."
+      };
       const state = hydrateState();
       let lastRenderData = [];
       let renderNonce = 0;
+
+      function applyTooltip(element, text) {
+        if (!element || !text) {
+          return;
+        }
+        element.setAttribute("title", text);
+      }
+
+      function applyControlTooltips() {
+        Object.entries(TOOLTIP_BY_ID).forEach(([id, text]) => {
+          const input = document.getElementById(id);
+          applyTooltip(input, text);
+          if (input) {
+            const label = document.querySelector(`label[for="${id}"]`);
+            applyTooltip(label, text);
+          }
+        });
+
+        document.querySelectorAll("#ctf-list [data-field]").forEach((control) => {
+          const field = control.getAttribute("data-field");
+          let text = TOOLTIP_BY_FIELD[field];
+          if (field === "defocus" || field === "defocus_wrong") {
+            const card = control.closest("[data-index]");
+            const index = Number(card?.getAttribute("data-index"));
+            const ctf = Number.isInteger(index) ? state.ctfs[index] : null;
+            if (ctf) {
+              const scherzer = scherzerDefocus(ctf, false);
+              const scherzerExtended = scherzerDefocus(ctf, true);
+              const extra = ` Scherzer defocus = ${scherzer.toFixed(4)} um. Extended Scherzer defocus = ${scherzerExtended.toFixed(4)} um.`;
+              text = `${text}${extra}`;
+            }
+          }
+          applyTooltip(control, text);
+          const fieldContainer = control.closest(".field");
+          if (fieldContainer) {
+            const label = fieldContainer.querySelector("label");
+            applyTooltip(label, text);
+          }
+        });
+      }
 
       function clampSidebarWidth(width) {
         const min = 260;
@@ -1562,9 +1653,14 @@
       }
 
       async function loadImageFromUrl(url) {
-        return new Promise((resolve, reject) => {
+        if (IMAGE_URL_CACHE.has(url)) {
+          return IMAGE_URL_CACHE.get(url);
+        }
+
+        const loadPromise = new Promise((resolve, reject) => {
           const image = new Image();
           image.crossOrigin = "anonymous";
+          image.decoding = "async";
           image.onload = () => {
             const width = Math.max(1, Math.round(image.naturalWidth || image.width || 0));
             const height = Math.max(1, Math.round(image.naturalHeight || image.height || 0));
@@ -1582,9 +1678,45 @@
             }
             resolve({ flat, width, height });
           };
-          image.onerror = () => reject(new Error("Image could not be loaded. The host may block CORS or the URL may be invalid."));
+          image.onerror = () => {
+            IMAGE_URL_CACHE.delete(url);
+            reject(new Error("Image could not be loaded. The host may block CORS or the URL may be invalid."));
+          };
           image.src = url;
         });
+
+        IMAGE_URL_CACHE.set(url, loadPromise);
+        return loadPromise;
+      }
+
+      function filteredImageCacheKey(sourceImageUrl, ctf, envOnly, width, height) {
+        const params = [
+          ctf.voltage, ctf.cs, ctf.ampcontrast, ctf.defocus, ctf.dfdiff, ctf.dfang,
+          ctf.phaseshift, ctf.bfactor, ctf.alpha, ctf.cc, ctf.dE, ctf.dI, ctf.dZ, ctf.dXY,
+          ctf.apix, ctf.over_sample, ctf.ctf_type
+        ];
+        return `${sourceImageUrl}|${width}x${height}|${envOnly ? 1 : 0}|${params.join(",")}`;
+      }
+
+      function getCachedFilteredImage(key) {
+        const hit = FILTERED_IMAGE_CACHE.get(key);
+        if (!hit) {
+          return null;
+        }
+        // Refresh insertion order so recent entries are retained longer.
+        FILTERED_IMAGE_CACHE.delete(key);
+        FILTERED_IMAGE_CACHE.set(key, hit);
+        return hit;
+      }
+
+      function setCachedFilteredImage(key, value) {
+        FILTERED_IMAGE_CACHE.set(key, value);
+        if (FILTERED_IMAGE_CACHE.size > FILTERED_IMAGE_CACHE_MAX) {
+          const oldestKey = FILTERED_IMAGE_CACHE.keys().next().value;
+          if (oldestKey !== undefined) {
+            FILTERED_IMAGE_CACHE.delete(oldestKey);
+          }
+        }
       }
 
       function matrixRows(flat, width, height = width) {
@@ -1712,6 +1844,8 @@
             </details>
           `;
         }).join("");
+
+        applyControlTooltips();
       }
 
       function numberField(field, label, value, step, min) {
@@ -1821,7 +1955,7 @@
 
         Plotly.react("plot-1d", traces, {
           paper_bgcolor: "rgba(0,0,0,0)",
-          plot_bgcolor: "rgba(255,252,246,0.95)",
+          plot_bgcolor: "#ffffff",
           margin: { l: 72, r: 24, t: 20, b: 60 },
           xaxis: { title: xAxisLabel, range: [0, xMax], gridcolor: "rgba(95,80,60,0.1)" },
           yaxis: { title: state.envOnly ? "Envelope" : state.ctfs.map((ctf) => ctf.ctf_type).join(" / "), range: [yMin < 0 ? Math.min(-1.05, yMin * 1.05) : 0, Math.max(1.05, yMax * 1.05)], gridcolor: "rgba(95,80,60,0.1)" },
@@ -1858,7 +1992,7 @@
 
         Plotly.react("plot-psf", traces, {
           paper_bgcolor: "rgba(0,0,0,0)",
-          plot_bgcolor: "rgba(255,252,246,0.95)",
+          plot_bgcolor: "#ffffff",
           margin: { l: 70, r: 24, t: 20, b: 60 },
           xaxis: { title: "x (Å)", gridcolor: "rgba(95,80,60,0.1)" },
           yaxis: { title: "PSF", gridcolor: "rgba(95,80,60,0.1)" },
@@ -1897,7 +2031,7 @@
             hovertemplate: "x=%{x:.4f}<br>y=%{y:.4f}<br>CTF=%{z:.5f}<extra></extra>"
           }], {
             paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(255,252,246,0.95)",
+            plot_bgcolor: "#ffffff",
             margin: { l: 46, r: 10, t: 10, b: 42 },
             xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
             yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
@@ -1923,7 +2057,7 @@
             const axis = centeredAxis(template.size, step);
             Plotly.react("ctf2d-average", [{ type: "heatmap", z: matrixRows(avg, template.size), x: axis, y: axis, colorscale: "Greys", reversescale: true, showscale: false, hovertemplate: "x=%{x:.4f}<br>y=%{y:.4f}<br>CTF=%{z:.5f}<extra></extra>" }], {
               paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(255,252,246,0.95)",
+              plot_bgcolor: "#ffffff",
               margin: { l: 46, r: 10, t: 10, b: 42 },
               xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
               yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
@@ -1961,7 +2095,7 @@
             hovertemplate: "x=%{x:.3f} Å<br>y=%{y:.3f} Å<br>PSF=%{z:.5f}<extra></extra>"
           }], {
             paper_bgcolor: "rgba(0,0,0,0)",
-            plot_bgcolor: "rgba(255,252,246,0.95)",
+            plot_bgcolor: "#ffffff",
             margin: { l: 46, r: 10, t: 10, b: 42 },
             xaxis: { title: "x (Å)", constrain: "domain" },
             yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
@@ -1997,7 +2131,7 @@
               hovertemplate: "x=%{x:.3f} Å<br>y=%{y:.3f} Å<br>PSF=%{z:.5f}<extra></extra>"
             }], {
               paper_bgcolor: "rgba(0,0,0,0)",
-              plot_bgcolor: "rgba(255,252,246,0.95)",
+              plot_bgcolor: "#ffffff",
               margin: { l: 46, r: 10, t: 10, b: 42 },
               xaxis: { title: "x (Å)", constrain: "domain" },
               yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
@@ -2014,14 +2148,33 @@
         }
         const size = clampInt(state.ctfs[0].imagesize * state.ctfs[0].over_sample, 16, 1024);
         let imageData;
+        let sourceImageUrl = "";
         if (state.imageMode === "url") {
-          if (!state.imageUrl) {
-            warnings.push("Image simulation is set to URL mode, but no URL was provided.");
+          sourceImageUrl = state.imageUrl.trim();
+          if (!sourceImageUrl) {
             imageData = { flat: makePatternImage("delta", size), width: size, height: size };
           } else {
             try {
-              imageData = await loadImageFromUrl(state.imageUrl);
+              imageData = await loadImageFromUrl(sourceImageUrl);
             } catch (error) {
+              warnings.push(error.message);
+              imageData = { flat: makePatternImage("delta", size), width: size, height: size };
+            }
+          }
+        } else if (state.imageMode in PRESET_IMAGE_URLS) {
+          sourceImageUrl = PRESET_IMAGE_URLS[state.imageMode];
+          try {
+            imageData = await loadImageFromUrl(sourceImageUrl);
+          } catch (error) {
+            if (sourceImageUrl.startsWith("http://")) {
+              try {
+                sourceImageUrl = sourceImageUrl.replace("http://", "https://");
+                imageData = await loadImageFromUrl(sourceImageUrl);
+              } catch (retryError) {
+                warnings.push(retryError.message);
+                imageData = { flat: makePatternImage("delta", size), width: size, height: size };
+              }
+            } else {
               warnings.push(error.message);
               imageData = { flat: makePatternImage("delta", size), width: size, height: size };
             }
@@ -2040,18 +2193,36 @@
         const grid = document.getElementById("image-grid");
         grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card image-display-card" style="--image-aspect:${imageData.width} / ${imageData.height};"></div></div>`).join("");
 
-        if (state.imageMode === "url" && state.imageUrl) {
-          renderNativeImage("image-original", state.imageUrl, "Original image");
+        if (sourceImageUrl) {
+          renderNativeImage("image-original", sourceImageUrl, "Original image");
         } else {
           renderImageHeatmap("image-original", imageData.flat, imageData.width, imageData.height, "Original image");
         }
         const outputs = [];
+        const isUrlBackedSource = Boolean(sourceImageUrl);
         for (let index = 0; index < state.ctfs.length; index += 1) {
-          const paddedWidth = state.imageMode === "url" ? nextPow2(Math.max(16, imageData.width * state.ctfs[index].over_sample)) : imageData.width;
-          const paddedHeight = state.imageMode === "url" ? nextPow2(Math.max(16, imageData.height * state.ctfs[index].over_sample)) : imageData.height;
-          const paddedImage = padImageFlat(imageData.flat, imageData.width, imageData.height, paddedWidth, paddedHeight);
-          const ctfMap = ctf2dForImage(state.ctfs[index], paddedWidth, paddedHeight, { envOnly: state.envOnly });
-          const filtered = applyCtfToImage(paddedImage, ctfMap.flat, paddedWidth, paddedHeight, imageData.width, imageData.height);
+          const ctf = state.ctfs[index];
+          let filtered;
+          if (isUrlBackedSource) {
+            const cacheKey = filteredImageCacheKey(sourceImageUrl, ctf, state.envOnly, imageData.width, imageData.height);
+            const cached = getCachedFilteredImage(cacheKey);
+            if (cached) {
+              filtered = cached;
+            } else {
+              const paddedWidth = nextPow2(Math.max(16, imageData.width * ctf.over_sample));
+              const paddedHeight = nextPow2(Math.max(16, imageData.height * ctf.over_sample));
+              const paddedImage = padImageFlat(imageData.flat, imageData.width, imageData.height, paddedWidth, paddedHeight);
+              const ctfMap = ctf2dForImage(ctf, paddedWidth, paddedHeight, { envOnly: state.envOnly });
+              filtered = applyCtfToImage(paddedImage, ctfMap.flat, paddedWidth, paddedHeight, imageData.width, imageData.height);
+              setCachedFilteredImage(cacheKey, filtered);
+            }
+          } else {
+            const paddedWidth = imageData.width;
+            const paddedHeight = imageData.height;
+            const paddedImage = padImageFlat(imageData.flat, imageData.width, imageData.height, paddedWidth, paddedHeight);
+            const ctfMap = ctf2dForImage(ctf, paddedWidth, paddedHeight, { envOnly: state.envOnly });
+            filtered = applyCtfToImage(paddedImage, ctfMap.flat, paddedWidth, paddedHeight, imageData.width, imageData.height);
+          }
           outputs.push({ flat: filtered, width: imageData.width, height: imageData.height });
           renderImageHeatmap(`image-${index}`, filtered, imageData.width, imageData.height, `Filtered ${index + 1}`);
         }
@@ -2092,7 +2263,7 @@
           hovertemplate: "x=%{x}<br>y=%{y}<br>value=%{z:.5f}<extra></extra>"
         }], {
           paper_bgcolor: "rgba(0,0,0,0)",
-          plot_bgcolor: "rgba(255,252,246,0.95)",
+          plot_bgcolor: "#ffffff",
           margin: { l: 0, r: 0, t: 0, b: 0 },
           xaxis: { visible: false, constrain: "domain" },
           yaxis: { visible: false, autorange: "reversed", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
