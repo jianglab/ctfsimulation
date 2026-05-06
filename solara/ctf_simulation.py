@@ -7,6 +7,7 @@ import solara
 def Page():
     solara.Title("CTF Simulation")
     google_analytics(id="G-YV3ZFR8VG6")
+    setupAdjustableSideBar()
     
     defocus, set_defocus = solara.use_state(0.5)
     voltage, set_voltage = solara.use_state(300)
@@ -73,6 +74,67 @@ def Page():
     solara.Markdown(
         '*Developed by the [Jiang Lab](https://jiang.bio.purdue.edu). Report issues at [CTFSimulation@GitHub](https://github.com/jianglab/ctfsimulation/issues)*'
     )
+
+def setupAdjustableSideBar(width="398px"):
+    solara.Div(
+        classes=["sidebar-handle"],
+        style={"position": "fixed", 
+                "top": "0",
+                "bottom": "0", 
+                "left": width,
+                "width": "2px",
+                "cursor": "ew-resize",
+                "background": "red",    #"#ddd",
+                "zIndex": 1000},
+    )
+    solara.HTML(
+        tag = "script",
+        unsafe_innerHTML=
+            """
+                console.log('XXXX ');
+                var sidebar = document.querySelector('.v-navigation-drawer');
+                var handle = document.querySelector('.sidebar-handle');
+                console.log('sidebar:', sidebar);
+                console.log('handle:', handle);
+                console.log('document.body.clientWidth:',document.body.clientWidth);
+
+                sidebar.style.setProperty('min-width',  document.body.clientWidth * 0.1 + "px");
+                sidebar.style.setProperty('max-width',  document.body.clientWidth * 0.9 + "px");
+                
+                handle.addEventListener('mousedown', (e) => {
+                    console.log('mousedown event:', e);
+                    const moveHandler = (e) => {
+                        var x = e.clientX;
+                        console.log('document.body.clientWidth:',document.body.clientWidth);
+                        console.log('mousemove e.clientX:', e.clientX);
+                        console.log('handle:', handle);
+
+                        console.log('x:', x);
+                        x = Math.min(Math.max(x, document.body.clientWidth * 0.1), document.body.clientWidth * 0.9);
+                        console.log('x:', x);
+                        sidebar.style.width = x + 'px';
+                        handle.style.left = x + 'px';
+                        console.log('sidebar.style.width:', sidebar.style.width);
+                        console.log('handle.style.left:', handle.style.left);
+                    };
+                    const upHandler = () => {
+                        document.removeEventListener('mousemove', moveHandler);
+                        document.removeEventListener('mouseup', upHandler);
+                    };
+                    document.addEventListener('mousemove', moveHandler);
+                    document.addEventListener('mouseup', upHandler);
+                });
+                
+                window.addEventListener('load', () => {
+                    const collapse_toggle = sidebar.querySelector('.collapse-toggle');
+                    collapse_toggle.addEventListener('click', (e) => {
+                        handle.style.display = handle.style.display === 'none' ? 'block' : 'none';
+                    });
+                });
+                console.log('ZZZZ ');
+            """
+    )
+
 
 def google_analytics(id):
     solara.HTML(

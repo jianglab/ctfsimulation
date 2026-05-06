@@ -84,11 +84,18 @@
       }
 
       .main {
-        padding: 6rem 5rem 3rem;
+        padding: 2rem 5rem 3rem;
         height: 100vh;
         overflow-y: auto;
         overflow-x: hidden;
         background: #ffffff;
+      }
+
+      @media (min-width: 721px) {
+        .main {
+          padding-left: clamp(1rem, 2vw, 2rem);
+          padding-right: clamp(1rem, 2vw, 2rem);
+        }
       }
 
       .sidebar-resizer {
@@ -258,6 +265,70 @@
         min-height: 2.5rem;
       }
 
+      .font-picker {
+        position: relative;
+      }
+
+      .font-picker summary {
+        list-style: none;
+        width: 100%;
+        border-radius: 0.6rem;
+        border: 1px solid rgba(49, 51, 63, 0.14);
+        padding: 0.7rem 0.85rem;
+        background: #ffffff;
+        color: var(--ink);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+
+      .font-picker summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .font-picker summary::after {
+        content: "▾";
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 0.9rem;
+      }
+
+      .font-picker[open] summary::after {
+        transform: rotate(180deg);
+      }
+
+      .font-picker-options {
+        margin-top: 0.35rem;
+        border: 1px solid rgba(49, 51, 63, 0.14);
+        border-radius: 0.6rem;
+        background: #ffffff;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .font-picker-option {
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        padding: 0.7rem 0.85rem;
+        background: #ffffff;
+        color: var(--ink);
+        font-weight: 400;
+        text-align: left;
+      }
+
+      .font-picker-option:hover,
+      .font-picker-option:focus-visible {
+        background: var(--accent-soft);
+        outline: none;
+      }
+
+      .font-picker-option.is-selected {
+        background: rgba(255, 75, 75, 0.08);
+      }
+
       .toggle {
         display: flex;
         flex-direction: row;
@@ -300,7 +371,7 @@
 
       .plot-panel,
       .table-panel {
-        padding: 1.25rem;
+        padding: 1rem;
       }
 
       .plot-panel {
@@ -308,7 +379,9 @@
       }
 
       #plot-1d {
-        min-height: 500px;
+        width: 100%;
+        max-width: 100%;
+        min-height: 560px;
       }
 
       .status-row {
@@ -405,8 +478,77 @@
         margin: 0;
       }
 
+      .formula-banner [data-data-eq-symbol] {
+        cursor: help;
+      }
+
+      .formula-banner [data-data-eq-symbol] * {
+        pointer-events: none;
+      }
+
+      #ctf-list .field.eq-highlight {
+        border-radius: 0.7rem;
+        background: rgba(255, 75, 75, 0.08);
+      }
+
+      #ctf-list .field.eq-highlight label {
+        color: #a33030;
+      }
+
+      #ctf-list .field.eq-highlight input,
+      #ctf-list .field.eq-highlight select {
+        border-color: rgba(255, 75, 75, 0.7);
+        box-shadow: 0 0 0 3px rgba(255, 75, 75, 0.18);
+      }
+
       .formula-banner.fallback {
         font-size: 1.05rem;
+      }
+
+      .rich-tooltip {
+        position: fixed;
+        z-index: 1000;
+        width: min(56rem, calc(100vw - 24px));
+        max-width: min(56rem, calc(100vw - 24px));
+        padding: 0.85rem 1rem;
+        border-radius: 0.85rem;
+        border: 1px solid rgba(49, 51, 63, 0.12);
+        background: rgba(255, 255, 255, 0.98);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.14);
+        color: var(--ink);
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 100ms ease, transform 100ms ease;
+        pointer-events: none;
+      }
+
+      .rich-tooltip.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .rich-tooltip-equation {
+        margin-bottom: 0.55rem;
+        padding: 0.65rem 0.8rem;
+        border-radius: 0.7rem;
+        background: #eaf2ff;
+        color: #325a8c;
+        overflow-x: auto;
+      }
+
+      .rich-tooltip-equation.hidden,
+      .rich-tooltip-copy.hidden {
+        display: none;
+      }
+
+      .rich-tooltip-equation .katex-display {
+        margin: 0;
+      }
+
+      .rich-tooltip-copy {
+        font-size: 0.92rem;
+        line-height: 1.45;
+        color: var(--muted);
       }
 
       .stack {
@@ -584,7 +726,7 @@
           <details class="ctf-card accordion" open>
             <summary class="accordion-summary">
               <span class="accordion-title">
-                <span>Display Options</span>
+                <span>CTF Display Options</span>
               </span>
               <span class="accordion-icon">&#9656;</span>
             </summary>
@@ -630,13 +772,63 @@
                   <input id="plot-s2" type="checkbox" />
                   <label for="plot-s2">Use s² as x-axis</label>
                 </div>
-                <div class="field toggle">
+              </div>
+            </div>
+          </details>
+          <details class="ctf-card accordion">
+            <summary class="accordion-summary">
+              <span class="accordion-title">
+                <span>General Display Options</span>
+              </span>
+              <span class="accordion-icon">&#9656;</span>
+            </summary>
+            <div class="accordion-body">
+              <div class="field-grid">
+                <div class="field toggle full">
                   <input id="share-url" type="checkbox" />
                   <label for="share-url">Show state in URL</label>
                 </div>
-                <div class="field toggle">
+                <div class="field toggle full">
                   <input id="show-qr" type="checkbox" />
                   <label for="show-qr">Show QR preview</label>
+                </div>
+                <div class="field full">
+                  <label for="plot-font-family">Font family</label>
+                  <input id="plot-font-family" type="hidden" />
+                  <details class="font-picker" id="plot-font-family-picker">
+                    <summary id="plot-font-family-summary">Arial</summary>
+                    <div class="font-picker-options">
+                      <button type="button" class="font-picker-option" data-font-family-option="avenir" style="font-family: Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif;">Avenir</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="arial" style="font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;">Arial</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="baskerville" style="font-family: Baskerville, 'Times New Roman', serif;">Baskerville</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="courier" style="font-family: 'Courier New', Courier, monospace;">Courier New</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="georgia" style="font-family: Georgia, 'Times New Roman', serif;">Georgia</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="helvetica" style="font-family: Helvetica, Arial, sans-serif;">Helvetica</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="iowan" style="font-family: 'Iowan Old Style', 'Palatino Linotype', serif;">Iowan Old Style</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="times-new-roman" style="font-family: 'Times New Roman', Times, serif;">Times New Roman</button>
+                      <button type="button" class="font-picker-option" data-font-family-option="verdana" style="font-family: Verdana, Geneva, sans-serif;">Verdana</button>
+                    </div>
+                  </details>
+                </div>
+                <div class="field">
+                  <label for="plot-font-base">Hover labels</label>
+                  <input id="plot-font-base" type="number" min="8" max="40" step="1" />
+                </div>
+                <div class="field">
+                  <label for="plot-font-axis-title">Axis titles</label>
+                  <input id="plot-font-axis-title" type="number" min="8" max="48" step="1" />
+                </div>
+                <div class="field">
+                  <label for="plot-font-tick">Axis tick labels</label>
+                  <input id="plot-font-tick" type="number" min="8" max="36" step="1" />
+                </div>
+                <div class="field">
+                  <label for="plot-font-legend">Legend</label>
+                  <input id="plot-font-legend" type="number" min="8" max="36" step="1" />
+                </div>
+                <div class="field full">
+                  <label for="plot-font-card-title">2D/image panel titles</label>
+                  <input id="plot-font-card-title" type="number" min="8" max="36" step="1" />
                 </div>
               </div>
             </div>
@@ -689,9 +881,9 @@
           <div class="formula-banner" id="formula-banner"></div>
         </header>
 
-        <div class="stack" style="margin-top: 18px;">
+        <div class="stack" style="margin-top: 12px;">
           <section class="plot-panel">
-            <div class="panel-head">
+            <div class="panel-head" id="plot-1d-head">
               <div>
                 <h2>1D CTF</h2>
               </div>
@@ -766,13 +958,17 @@
         <section class="learn-more">
           <p><strong>Learn more about <a href="https://en.wikipedia.org/wiki/Contrast_transfer_function" target="_blank" rel="noreferrer">Contrast Transfer Function (CTF)</a>:</strong></p>
           <ul>
-            <li><a href="https://jiang.bio.purdue.edu/ctf" target="_blank" rel="noreferrer">CTF Tutorial, Wen Jiang</a></li>
+            <li><a href="https://docs.google.com/presentation/d/e/2PACX-1vTB-nZBdKVjEdDqV4DNxm7znY_dH4biyHieLNzi-i1I1kNJYgvjT72INbFpK9cUFTO95l8gKDynzGFx/pub?start=true&loop=true&delayms=3000" target="_blank" rel="noreferrer">CTF Tutorial, Wen Jiang</a></li>
             <li><a href="https://www.youtube.com/watch?reload=9&v=mPynoF2j6zc&t=2s" target="_blank" rel="noreferrer">The contrast transfer function, Grant Jensen</a></li>
             <li><a href="https://www.youtube.com/watch?v=Y8wivQTJEHQ&list=PLRqNpJmSRfar_z87-oa5W421_HP1ScB25&index=5" target="_blank" rel="noreferrer">Defocus phase contrast, Fred Sigworth</a></li>
           </ul>
           <p class="footer-note">Developed by the <a href="https://jianglab.science.psu.edu/" target="_blank" rel="noreferrer">Jiang Lab</a>. Report problems to <a href="https://github.com/jianglab/ctfsimulation" target="_blank" rel="noreferrer">CTFSimulation@GitHub</a>.</p>
         </section>
       </main>
+    </div>
+    <div class="rich-tooltip" id="rich-tooltip" hidden>
+      <div class="rich-tooltip-equation hidden" id="rich-tooltip-equation"></div>
+      <div class="rich-tooltip-copy hidden" id="rich-tooltip-copy"></div>
     </div>
 
     <script>
@@ -817,6 +1013,12 @@
         simulateWrongDefocus: false,
         shareUrl: false,
         showQr: false,
+        plotFontFamily: "arial",
+        plotFontBase: 16,
+        plotFontAxisTitle: 18,
+        plotFontTick: 13,
+        plotFontLegend: 14,
+        plotFontCardTitle: 16,
         imageMode: "delta",
         imageUrl: "https://upload.wikimedia.org/wikipedia/commons/d/d3/Albert_Einstein_Head.jpg",
         accordionOpen: [true],
@@ -827,6 +1029,18 @@
         lensFocus: "WWW/test-images/lens-focus-test-chart.jpg",
         tvTest: "WWW/test-images/tv-test-signal.png",
         spiralRainbow: "WWW/test-images/spiral-rainbow-squares.jpg"
+      };
+
+      const PLOT_FONT_FAMILIES = {
+        arial: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
+        iowan: '"Iowan Old Style", "Palatino Linotype", serif',
+        georgia: 'Georgia, "Times New Roman", serif',
+        baskerville: 'Baskerville, "Times New Roman", serif',
+        helvetica: 'Helvetica, Arial, sans-serif',
+        avenir: 'Avenir, "Helvetica Neue", Helvetica, Arial, sans-serif',
+        "times-new-roman": '"Times New Roman", Times, serif',
+        verdana: 'Verdana, Geneva, sans-serif',
+        courier: '"Courier New", Courier, monospace'
       };
 
       const INTEGER_CTF_FIELDS = new Set(["imagesize", "over_sample"]);
@@ -848,6 +1062,12 @@
         "plot-s2": "Use s^2 instead of s on x-axis/radius.",
         "share-url": "Store current state in URL so plots can be reproduced by sharing the link.",
         "show-qr": "Display a QR code for the sharable URL.",
+        "plot-font-family": "Font family used across plot labels, legends, and hover labels.",
+        "plot-font-base": "Font size for Plotly hover labels.",
+        "plot-font-axis-title": "Font size for x-axis and y-axis titles.",
+        "plot-font-tick": "Font size for axis tick labels.",
+        "plot-font-legend": "Font size for plot legends.",
+        "plot-font-card-title": "Font size for titles above the 2D, PSF-2D, and image plot cards.",
         "image-mode": "Choose procedural, preset, or external URL image source.",
         "image-url": "Direct image URL. Must allow cross-origin loading in browser."
       };
@@ -875,6 +1095,73 @@
         show_marker: "Show markers on 1D CTF traces.",
         ctf_intact_first_peak: "Ignore CTF behavior until first peak (Relion-style option)."
       };
+      const FIELD_META = {
+        ctf_type: { label: "CTF type" },
+        defocus: { label: "Defocus", unit: "µm" },
+        defocus_wrong: { label: "Wrong defocus", unit: "µm" },
+        dfdiff: { label: "Astigmatism mag", unit: "µm" },
+        dfang: { label: "Astigmatism angle", unit: "°" },
+        phaseshift: { label: "Phase shift", unit: "°" },
+        apix: { label: "Pixel size", unit: "Å/pixel" },
+        apix_wrong: { label: "Wrong pixel size", unit: "Å/pixel" },
+        voltage: { label: "Voltage", unit: "kV" },
+        cs: { label: "Cs", unit: "mm" },
+        ampcontrast: { label: "Amplitude contrast", unit: "%" },
+        imagesize: { label: "Image size", unit: "pixel" },
+        over_sample: { label: "Over-sample" },
+        bfactor: { label: "B-factor", unit: "Å²" },
+        alpha: { label: "Beam convergence", unit: "mrad" },
+        dE: { label: "Energy spread", unit: "eV" },
+        dI: { label: "Current spread", unit: "ppm" },
+        cc: { label: "Cc", unit: "mm" },
+        dZ: { label: "Vertical motion", unit: "Å" },
+        dXY: { label: "Horizontal motion", unit: "Å" }
+      };
+      const EQUATION_ATTR_BY_FIELD = {
+        defocus: ["defocus"],
+        dfdiff: ["dfdiff"],
+        dfang: ["dfang"],
+        phaseshift: ["phaseshift"],
+        apix: ["sampling"],
+        voltage: ["voltage"],
+        cs: ["cs"],
+        ampcontrast: ["ampcontrast"],
+        over_sample: ["sampling"],
+        bfactor: ["bfactor"]
+      };
+      const EQUATION_SYMBOLS = {
+        sampling: "s",
+        voltage: String.raw`\lambda`,
+        defocus: String.raw`\Delta f`,
+        dfdiff: String.raw`\Delta\Delta f`,
+        dfang: String.raw`\theta_0`,
+        cs: "C_s",
+        bfactor: "B",
+        phaseshift: String.raw`\phi`,
+        ampcontrast: "Q"
+      };
+      const EQUATION_TOOLTIPS = {
+        sampling: "Spatial frequency in Fourier space. It is determined by the image pixel size; Nyquist is 1 / (2 * pixel size).",
+        voltage: "Electron wavelength λ. It is determined by the accelerating voltage of the microscope.",
+        defocus: "Defocus. Positive values indicate under-focus and negative values indicate over-focus.",
+        dfdiff: "Astigmatism magnitude, equal to maximal defocus minus minimal defocus.",
+        dfang: "Astigmatism angle θ0, the in-plane direction of maximal defocus.",
+        cs: "Spherical aberration coefficient Cs.",
+        bfactor: "B-factor envelope term that damps higher spatial frequencies.",
+        phaseshift: "Additional phase shift φ, for example from a phase plate.",
+        ampcontrast: "Amplitude contrast Q. It contributes the asin(Q) phase offset term."
+      };
+      const EQUATION_FIELDS_BY_SYMBOL = {
+        sampling: ["apix", "over_sample"],
+        voltage: ["voltage"],
+        defocus: ["defocus"],
+        dfdiff: ["dfdiff"],
+        dfang: ["dfang"],
+        cs: ["cs"],
+        bfactor: ["bfactor"],
+        phaseshift: ["phaseshift"],
+        ampcontrast: ["ampcontrast"]
+      };
       const state = hydrateState();
       let lastRenderData = [];
       let renderNonce = 0;
@@ -884,6 +1171,211 @@
           return;
         }
         element.setAttribute("title", text);
+      }
+
+      function mergeUnique(base, extra) {
+        const merged = [...base];
+        extra.forEach((value) => {
+          if (!merged.includes(value)) {
+            merged.push(value);
+          }
+        });
+        return merged;
+      }
+
+      function varyingEquationAttrs(ctfs) {
+        const attrMapping = {
+          apix: "sampling"
+        };
+        return varyingKeys(ctfs)
+          .map((key) => attrMapping[key] || key)
+          .filter((key, index, array) => EQUATION_SYMBOLS[key] && array.indexOf(key) === index);
+      }
+
+      function formatEquationSymbol(key, coloredSet, interactive = false) {
+        let symbol = EQUATION_SYMBOLS[key];
+        if (coloredSet.has(key)) {
+          symbol = String.raw`{\textcolor{red}{${symbol}}}`;
+        }
+        if (interactive) {
+          symbol = String.raw`\htmlData{data-eq-symbol=${key}}{${symbol}}`;
+        }
+        return symbol;
+      }
+
+      function ctfEquation(coloredAttrs = [], interactive = false) {
+        const coloredSet = new Set(coloredAttrs);
+        const symbols = Object.fromEntries(Object.keys(EQUATION_SYMBOLS).map((key) => [
+          key,
+          formatEquationSymbol(key, coloredSet, interactive)
+        ]));
+        return String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(\frac{-2\pi}{${symbols.voltage}}\left(\frac{${symbols.voltage}^2 ${symbols.sampling}^2}{2}\left(${symbols.defocus}+${symbols.dfdiff}\cos\left(2\left(\theta-${symbols.dfang}\right)\right) - \frac{${symbols.voltage}^4 ${symbols.sampling}^4}{4}${symbols.cs}\right)\right)+\sin^{-1}(${symbols.ampcontrast})+${symbols.phaseshift}\right)e^{-${symbols.bfactor}${symbols.sampling}^2/4}`;
+      }
+
+      function applyFormulaBannerTooltips() {
+        const banner = document.getElementById("formula-banner");
+        if (!(banner instanceof HTMLDivElement)) {
+          return;
+        }
+        banner.querySelectorAll("[data-data-eq-symbol]").forEach((node) => {
+          const key = node.getAttribute("data-data-eq-symbol");
+          if (!key) {
+            return;
+          }
+          applyRichTooltip(node, { text: EQUATION_TOOLTIPS[key] || "", equation: "" });
+        });
+      }
+
+      function setEquationFieldHighlight(symbolKey, active) {
+        const fields = EQUATION_FIELDS_BY_SYMBOL[symbolKey] || [];
+        fields.forEach((field) => {
+          document.querySelectorAll(`#ctf-list [data-field="${field}"]`).forEach((element) => {
+            element.closest(".field")?.classList.toggle("eq-highlight", active);
+          });
+        });
+      }
+
+      function scrollEquationFieldIntoView(symbolKey) {
+        const fields = EQUATION_FIELDS_BY_SYMBOL[symbolKey] || [];
+        for (const field of fields) {
+          const element = document.querySelector(`#ctf-list [data-field="${field}"]`);
+          const fieldRow = element?.closest(".field");
+          if (fieldRow instanceof HTMLElement) {
+            const sidebar = fieldRow.closest(".sidebar");
+            if (sidebar instanceof HTMLElement) {
+              const margin = 16;
+              const rowTop = fieldRow.offsetTop;
+              const rowBottom = rowTop + fieldRow.offsetHeight;
+              const viewTop = sidebar.scrollTop;
+              const viewBottom = viewTop + sidebar.clientHeight;
+              if (rowTop < viewTop + margin) {
+                sidebar.scrollTo({ top: Math.max(0, rowTop - margin), behavior: "smooth" });
+              } else if (rowBottom > viewBottom - margin) {
+                sidebar.scrollTo({ top: Math.max(0, rowBottom - sidebar.clientHeight + margin), behavior: "smooth" });
+              }
+            }
+            return;
+          }
+        }
+      }
+
+      function applyFormulaBannerInteractions() {
+        const banner = document.getElementById("formula-banner");
+        if (!(banner instanceof HTMLDivElement)) {
+          return;
+        }
+        banner.querySelectorAll("[data-data-eq-symbol]").forEach((node) => {
+          const key = node.getAttribute("data-data-eq-symbol");
+          if (!key || node.dataset.eqHighlightBound) {
+            return;
+          }
+          node.addEventListener("mouseenter", () => {
+            setEquationFieldHighlight(key, true);
+            scrollEquationFieldIntoView(key);
+          });
+          node.addEventListener("mouseleave", () => setEquationFieldHighlight(key, false));
+          node.addEventListener("focus", () => {
+            setEquationFieldHighlight(key, true);
+            scrollEquationFieldIntoView(key);
+          });
+          node.addEventListener("blur", () => setEquationFieldHighlight(key, false));
+          node.dataset.eqHighlightBound = "1";
+        });
+      }
+
+      function buildFieldTooltip(field, text) {
+        const equationAttrs = EQUATION_ATTR_BY_FIELD[field] || [];
+        return {
+          text,
+          equation: equationAttrs.length ? ctfEquation(equationAttrs) : ""
+        };
+      }
+
+      function positionRichTooltip(target) {
+        const tooltip = document.getElementById("rich-tooltip");
+        if (!(tooltip instanceof HTMLDivElement) || !target) {
+          return;
+        }
+        const spacing = 12;
+        const targetRect = target.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        let left = targetRect.right + spacing;
+        if (left + tooltipRect.width > window.innerWidth - spacing) {
+          left = targetRect.left - tooltipRect.width - spacing;
+        }
+        left = Math.max(spacing, Math.min(left, window.innerWidth - tooltipRect.width - spacing));
+        let top = targetRect.top;
+        if (top + tooltipRect.height > window.innerHeight - spacing) {
+          top = window.innerHeight - tooltipRect.height - spacing;
+        }
+        top = Math.max(spacing, top);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+      }
+
+      function hideRichTooltip() {
+        const tooltip = document.getElementById("rich-tooltip");
+        if (!(tooltip instanceof HTMLDivElement)) {
+          return;
+        }
+        tooltip.classList.remove("visible");
+        tooltip.hidden = true;
+      }
+
+      function showRichTooltip(target) {
+        const tooltip = document.getElementById("rich-tooltip");
+        const equationNode = document.getElementById("rich-tooltip-equation");
+        const copyNode = document.getElementById("rich-tooltip-copy");
+        if (!(tooltip instanceof HTMLDivElement) || !(equationNode instanceof HTMLDivElement) || !(copyNode instanceof HTMLDivElement)) {
+          return;
+        }
+        const equation = target?.dataset?.tooltipEquation || "";
+        const text = target?.dataset?.tooltipText || "";
+        if (!equation && !text) {
+          hideRichTooltip();
+          return;
+        }
+
+        equationNode.classList.toggle("hidden", !equation);
+        copyNode.classList.toggle("hidden", !text);
+        copyNode.textContent = text;
+
+        if (equation) {
+          if (typeof window.katex?.render === "function") {
+            window.katex.render(equation, equationNode, { displayMode: true, throwOnError: false });
+          } else {
+            equationNode.textContent = equation;
+          }
+        } else {
+          equationNode.textContent = "";
+        }
+
+        tooltip.hidden = false;
+        tooltip.classList.add("visible");
+        positionRichTooltip(target);
+      }
+
+      function applyRichTooltip(element, tooltip) {
+        if (!element) {
+          return;
+        }
+        const text = tooltip?.text || "";
+        const equation = tooltip?.equation || "";
+        if (!text && !equation) {
+          delete element.dataset.tooltipText;
+          delete element.dataset.tooltipEquation;
+          return;
+        }
+        element.dataset.tooltipText = text;
+        element.dataset.tooltipEquation = equation;
+        element.removeAttribute("title");
+        if (!element.dataset.richTooltipBound) {
+          element.addEventListener("mouseenter", () => showRichTooltip(element));
+          element.addEventListener("mouseleave", hideRichTooltip);
+          element.addEventListener("focus", () => showRichTooltip(element));
+          element.addEventListener("blur", hideRichTooltip);
+          element.dataset.richTooltipBound = "1";
+        }
       }
 
       function applyControlTooltips() {
@@ -910,11 +1402,12 @@
               text = `${text}${extra}`;
             }
           }
-          applyTooltip(control, text);
+          const tooltip = buildFieldTooltip(field, text);
+          applyRichTooltip(control, tooltip);
           const fieldContainer = control.closest(".field");
           if (fieldContainer) {
             const label = fieldContainer.querySelector("label");
-            applyTooltip(label, text);
+            applyRichTooltip(label, tooltip);
           }
         });
       }
@@ -950,10 +1443,12 @@
         if (!(banner instanceof HTMLDivElement)) {
           return;
         }
-        const expression = String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(-\frac{2\pi}{\lambda}\left(\frac{\lambda^2 s^2}{2}\left(\Delta f + \Delta\Delta f\cos\left(2\left(\theta-\theta_0\right)\right)\right) - \frac{\lambda^4 s^4}{4}C_s\right)+\sin^{-1}(Q)+\phi\right)e^{-Bs^2/4}`;
+        const expression = ctfEquation(varyingEquationAttrs(state.ctfs), true);
         if (typeof window.katex?.render === "function") {
           banner.classList.remove("fallback");
-          window.katex.render(expression, banner, { displayMode: true, throwOnError: false });
+          window.katex.render(expression, banner, { displayMode: true, throwOnError: false, trust: true });
+          applyFormulaBannerTooltips();
+          applyFormulaBannerInteractions();
           return;
         }
         banner.classList.add("fallback");
@@ -1017,6 +1512,12 @@
         next.simulateWrongDefocus = params.get("simulateWrongDefocus") === "1";
         next.shareUrl = params.get("shareUrl") === "1";
         next.showQr = params.get("showQr") === "1";
+        next.plotFontFamily = params.get("plotFontFamily") in PLOT_FONT_FAMILIES ? params.get("plotFontFamily") : next.plotFontFamily;
+        next.plotFontBase = clampInt(Number(params.get("plotFontBase") || next.plotFontBase), 8, 40);
+        next.plotFontAxisTitle = clampInt(Number(params.get("plotFontAxisTitle") || next.plotFontAxisTitle), 8, 48);
+        next.plotFontTick = clampInt(Number(params.get("plotFontTick") || next.plotFontTick), 8, 36);
+        next.plotFontLegend = clampInt(Number(params.get("plotFontLegend") || next.plotFontLegend), 8, 36);
+        next.plotFontCardTitle = clampInt(Number(params.get("plotFontCardTitle") || next.plotFontCardTitle), 8, 36);
         next.imageMode = params.get("imageMode") || next.imageMode;
         next.imageUrl = params.get("imageUrl") || next.imageUrl;
         next.ctfs = Array.from({ length: next.count }, (_, index) => {
@@ -1045,7 +1546,7 @@
 
       function buildStateQuery() {
         const params = new URLSearchParams();
-        params.set("count", String(state.count));
+        if (state.count !== DEFAULT_STATE.count) params.set("count", String(state.count));
         if (state.plotS2) params.set("plotS2", "1");
         if (state.envOnly) params.set("envOnly", "1");
         if (state.showAvg) params.set("showAvg", "1");
@@ -1058,8 +1559,14 @@
         if (state.simulateWrongDefocus) params.set("simulateWrongDefocus", "1");
         if (state.shareUrl) params.set("shareUrl", "1");
         if (state.showQr) params.set("showQr", "1");
+        if (state.plotFontFamily !== DEFAULT_STATE.plotFontFamily) params.set("plotFontFamily", state.plotFontFamily);
+        if (state.plotFontBase !== DEFAULT_STATE.plotFontBase) params.set("plotFontBase", String(state.plotFontBase));
+        if (state.plotFontAxisTitle !== DEFAULT_STATE.plotFontAxisTitle) params.set("plotFontAxisTitle", String(state.plotFontAxisTitle));
+        if (state.plotFontTick !== DEFAULT_STATE.plotFontTick) params.set("plotFontTick", String(state.plotFontTick));
+        if (state.plotFontLegend !== DEFAULT_STATE.plotFontLegend) params.set("plotFontLegend", String(state.plotFontLegend));
+        if (state.plotFontCardTitle !== DEFAULT_STATE.plotFontCardTitle) params.set("plotFontCardTitle", String(state.plotFontCardTitle));
         if (state.imageMode !== DEFAULT_STATE.imageMode) params.set("imageMode", state.imageMode);
-        if (state.imageUrl) params.set("imageUrl", state.imageUrl);
+        if (state.imageUrl !== DEFAULT_STATE.imageUrl) params.set("imageUrl", state.imageUrl);
 
         state.ctfs.forEach((ctf, index) => {
           Object.entries(ctf).forEach(([key, value]) => {
@@ -1745,13 +2252,92 @@
 
       function traceLabel(ctf, index, diffKeys) {
         if (!diffKeys.length) return `CTF ${index + 1}`;
-        return diffKeys.map((key) => `${key}=${formatCompact(ctf[key])}`).join(" / ");
+        return diffKeys.map((key) => formatFieldValue(key, ctf[key])).join(" / ");
       }
 
       function formatCompact(value) {
         if (typeof value === "string") return value;
         if (Math.abs(value) >= 100 || (Math.abs(value) < 0.001 && value !== 0)) return value.toExponential(3);
         return Number(value.toFixed(5)).toString();
+      }
+
+      function formatFieldValue(field, value) {
+        const meta = FIELD_META[field] || { label: field };
+        const unit = meta.unit ? ` ${meta.unit}` : "";
+        return `${meta.label}=${formatCompact(value)}${unit}`;
+      }
+
+      function plotTypography() {
+        return {
+          family: PLOT_FONT_FAMILIES[state.plotFontFamily] || PLOT_FONT_FAMILIES[DEFAULT_STATE.plotFontFamily],
+          color: "#2b2114",
+          baseSize: state.plotFontBase,
+          axisTitleSize: state.plotFontAxisTitle,
+          tickSize: state.plotFontTick,
+          legendSize: state.plotFontLegend,
+          cardTitleSize: state.plotFontCardTitle
+        };
+      }
+
+      function plotAxis(titleText, extra = {}) {
+        const typography = plotTypography();
+        return {
+          ...extra,
+          title: { text: titleText, font: { size: typography.axisTitleSize } },
+          tickfont: { size: typography.tickSize }
+        };
+      }
+
+      function plotLegend(extra = {}) {
+        const typography = plotTypography();
+        return {
+          orientation: "h",
+          y: 1.12,
+          font: { size: typography.legendSize },
+          ...extra
+        };
+      }
+
+      function plotFont(extra = {}) {
+        const typography = plotTypography();
+        return {
+          family: typography.family,
+          color: typography.color,
+          size: typography.baseSize,
+          ...extra
+        };
+      }
+
+      function plotHoverLabel(extra = {}) {
+        const typography = plotTypography();
+        return {
+          font: {
+            family: typography.family,
+            size: typography.baseSize
+          },
+          ...extra
+        };
+      }
+
+      function ctf2DAxisLabel(axis) {
+        return state.plotS2 ? `s<sup>2</sup><sub>${axis}</sub>` : `s<sub>${axis}</sub>`;
+      }
+
+      function syncFontFamilyPicker() {
+        const input = document.getElementById("plot-font-family");
+        const summary = document.getElementById("plot-font-family-summary");
+        const picker = document.getElementById("plot-font-family-picker");
+        const selectedKey = state.plotFontFamily in PLOT_FONT_FAMILIES ? state.plotFontFamily : DEFAULT_STATE.plotFontFamily;
+        const selectedOption = document.querySelector(`[data-font-family-option="${selectedKey}"]`);
+        if (!(input instanceof HTMLInputElement) || !(summary instanceof HTMLElement) || !(picker instanceof HTMLDetailsElement) || !(selectedOption instanceof HTMLElement)) {
+          return;
+        }
+        input.value = selectedKey;
+        summary.textContent = selectedOption.textContent || "";
+        summary.style.fontFamily = PLOT_FONT_FAMILIES[selectedKey] || "";
+        document.querySelectorAll(".font-picker-option").forEach((option) => {
+          option.classList.toggle("is-selected", option === selectedOption);
+        });
       }
 
       function renderControls() {
@@ -1769,6 +2355,12 @@
         document.getElementById("simulate-wrong-defocus").checked = state.simulateWrongDefocus;
         document.getElementById("share-url").checked = state.shareUrl;
         document.getElementById("show-qr").checked = state.showQr;
+        syncFontFamilyPicker();
+        document.getElementById("plot-font-base").value = state.plotFontBase;
+        document.getElementById("plot-font-axis-title").value = state.plotFontAxisTitle;
+        document.getElementById("plot-font-tick").value = state.plotFontTick;
+        document.getElementById("plot-font-legend").value = state.plotFontLegend;
+        document.getElementById("plot-font-card-title").value = state.plotFontCardTitle;
         document.getElementById("image-mode").value = state.imageMode;
         document.getElementById("image-url").value = state.imageUrl;
         document.getElementById("share-block").hidden = !state.showQr;
@@ -1857,13 +2449,82 @@
         `;
       }
 
+      function viewportPlotHeight(plotId, minHeight = 560, bottomGap = 24) {
+        const plot = document.getElementById(plotId);
+        if (!(plot instanceof HTMLDivElement)) {
+          return minHeight;
+        }
+        const top = Math.max(plot.getBoundingClientRect().top, 24);
+        return Math.max(minHeight, Math.round(window.innerHeight - top - bottomGap));
+      }
+
+      function plotContentWidth(plotId) {
+        const plot = document.getElementById(plotId);
+        if (!(plot instanceof HTMLDivElement)) {
+          return null;
+        }
+        const panel = plot.closest(".plot-panel");
+        if (!(panel instanceof HTMLElement)) {
+          return Math.round(plot.clientWidth || plot.getBoundingClientRect().width || 0) || null;
+        }
+        const styles = getComputedStyle(panel);
+        const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+        const paddingRight = parseFloat(styles.paddingRight) || 0;
+        return Math.max(320, Math.round(panel.clientWidth - paddingLeft - paddingRight));
+      }
+
+      function syncViewportPlotHeight(plotId, minHeight = 560, bottomGap = 24) {
+        const plot = document.getElementById(plotId);
+        if (!(plot instanceof HTMLDivElement)) {
+          return minHeight;
+        }
+        const height = viewportPlotHeight(plotId, minHeight, bottomGap);
+        plot.style.minHeight = `${height}px`;
+        plot.style.height = `${height}px`;
+        plot.style.width = "100%";
+        plot.style.maxWidth = "100%";
+        if (plot.layout) {
+          Plotly.relayout(plot, { height, autosize: true }).then(() => Plotly.Plots.resize(plot)).catch(() => {});
+        }
+        return height;
+      }
+
+      function watchPlotContainer(plotId, minHeight = 560, bottomGap = 24) {
+        const plot = document.getElementById(plotId);
+        const panel = plot?.closest(".plot-panel");
+        if (!(plot instanceof HTMLDivElement) || !(panel instanceof HTMLElement) || typeof ResizeObserver !== "function") {
+          return;
+        }
+        if (panel.dataset.plotResizeBound === "1") {
+          return;
+        }
+        let frame = 0;
+        let lastWidth = Math.round(panel.clientWidth);
+        const observer = new ResizeObserver(() => {
+          const nextWidth = Math.round(panel.clientWidth);
+          if (nextWidth === lastWidth) {
+            return;
+          }
+          lastWidth = nextWidth;
+          cancelAnimationFrame(frame);
+          frame = requestAnimationFrame(() => {
+            syncViewportPlotHeight(plotId, minHeight, bottomGap);
+          });
+        });
+        observer.observe(panel);
+        panel.dataset.plotResizeBound = "1";
+      }
+
       function compatibleForAverage(ctfs, keys) {
         const first = ctfs[0];
         return ctfs.every((ctf) => keys.every((key) => ctf[key] === first[key]));
       }
 
       function renderPlot1D(warnings) {
-        const xAxisLabel = state.plotS2 ? "s² (1/Å²)" : "s (1/Å)";
+        const xAxisLabel = state.plotS2 ? "s² (Å<sup>-2</sup>)" : "s (Å<sup>-1</sup>)";
+        const xHoverLabel = state.plotS2 ? "s²" : "s";
+        const xHoverUnit = state.plotS2 ? "Å<sup>-2</sup>" : "Å<sup>-1</sup>";
+        const plotHeight = viewportPlotHeight("plot-1d", 560, 24);
         const diffKeys = varyingKeys(state.ctfs);
         const traces = [];
         lastRenderData = [];
@@ -1891,7 +2552,7 @@
             const x = state.plotS2 ? result.s2 : result.s;
             const y = result.values;
             const baseLabel = traceLabel(ctf, index, diffKeys);
-            const label = defocuses.length > 1 ? `${baseLabel} / defocus=${formatCompact(defocusValue)}` : baseLabel;
+            const label = defocuses.length > 1 ? `${baseLabel} / ${formatFieldValue("defocus", defocusValue)}` : baseLabel;
             const color = COLORS[index % COLORS.length];
             const dash = defocuses.length > 1 ? (["dash", "solid", "dot"][defocusIndex] || "solid") : "solid";
             xMax = Math.max(xMax, x[x.length - 1]);
@@ -1908,7 +2569,7 @@
               y: Array.from(y),
               line: { width: defocuses.length > 1 && defocusIndex !== 1 ? 1.5 : 2.5, color, dash },
               marker: { size: 5, color },
-              hovertemplate: `${label}<br>x=%{x:.5f}<br>CTF=%{y:.5f}<br>Res=%{customdata:.3f} Å<extra></extra>`,
+              hovertemplate: `${label}<br>${xHoverLabel}=%{x:.5f} ${xHoverUnit}<br>Res=%{customdata:.3f} Å<br>CTF=%{y:.5f}<extra></extra>`,
               customdata: Array.from(result.s, (value, row) => row === 0 ? 1e6 : 1 / value)
             });
             lastRenderData.push({ label, x: Array.from(x), s: Array.from(result.s), y: Array.from(y) });
@@ -1927,10 +2588,12 @@
             x: axis,
             y: Array.from(radial),
             line: { width: 3, color: "#b62020" },
-            hovertemplate: "rotavg<br>x=%{x:.5f}<br>CTF=%{y:.5f}<extra></extra>"
+            hovertemplate: `rotavg<br>${xHoverLabel}=%{x:.5f} ${xHoverUnit}<br>CTF=%{y:.5f}<extra></extra>`
           });
           lastRenderData.push({ label: "rotavg", x: axis, s: sAxis, y: Array.from(radial) });
         }
+
+        const typography = plotTypography();
 
         if (state.showAvg && state.ctfs.length > 1) {
           if (!compatibleForAverage(state.ctfs, ["imagesize", "over_sample", "ctf_type", "apix"])) {
@@ -1946,21 +2609,38 @@
               x: template.x,
               y: avg,
               line: { width: 3, color: "#b62020" },
-              hovertemplate: "average<br>x=%{x:.5f}<br>CTF=%{y:.5f}<extra></extra>"
+              hovertemplate: `average<br>${xHoverLabel}=%{x:.5f} ${xHoverUnit}<br>CTF=%{y:.5f}<extra></extra>`
             });
             lastRenderData.push({ label: "average", x: template.x, s: template.s, y: avg });
           }
         }
 
+        const plot = document.getElementById("plot-1d");
+        if (plot instanceof HTMLDivElement) {
+          plot.style.minHeight = `${plotHeight}px`;
+          plot.style.height = `${plotHeight}px`;
+          plot.style.width = "100%";
+          plot.style.maxWidth = "100%";
+        }
+
+        watchPlotContainer("plot-1d", 560, 24);
+
         Plotly.react("plot-1d", traces, {
           paper_bgcolor: "rgba(0,0,0,0)",
           plot_bgcolor: "#ffffff",
+          autosize: true,
+          height: plotHeight,
           margin: { l: 72, r: 24, t: 20, b: 60 },
-          xaxis: { title: xAxisLabel, range: [0, xMax], gridcolor: "rgba(95,80,60,0.1)" },
-          yaxis: { title: state.envOnly ? "Envelope" : state.ctfs.map((ctf) => ctf.ctf_type).join(" / "), range: [yMin < 0 ? Math.min(-1.05, yMin * 1.05) : 0, Math.max(1.05, yMax * 1.05)], gridcolor: "rgba(95,80,60,0.1)" },
-          legend: { orientation: "h", y: 1.12 },
-          font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
-        }, { responsive: true, displaylogo: false });
+          xaxis: plotAxis(xAxisLabel, { range: [0, xMax], gridcolor: "rgba(95,80,60,0.1)" }),
+          yaxis: plotAxis(state.envOnly ? "Envelope" : state.ctfs.map((ctf) => ctf.ctf_type).join(" / "), { range: [yMin < 0 ? Math.min(-1.05, yMin * 1.05) : 0, Math.max(1.05, yMax * 1.05)], gridcolor: "rgba(95,80,60,0.1)" }),
+          legend: plotLegend(),
+          font: plotFont(),
+          hoverlabel: plotHoverLabel()
+        }, { responsive: true, displaylogo: false }).then(() => {
+          if (plot instanceof HTMLDivElement) {
+            Plotly.Plots.resize(plot);
+          }
+        }).catch(() => {});
       }
 
       function renderPSFPanel(warnings) {
@@ -1993,10 +2673,11 @@
           paper_bgcolor: "rgba(0,0,0,0)",
           plot_bgcolor: "#ffffff",
           margin: { l: 70, r: 24, t: 20, b: 60 },
-          xaxis: { title: "x (Å)", gridcolor: "rgba(95,80,60,0.1)" },
-          yaxis: { title: "PSF", gridcolor: "rgba(95,80,60,0.1)" },
-          legend: { orientation: "h", y: 1.12 },
-          font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+          xaxis: plotAxis("x (Å)", { gridcolor: "rgba(95,80,60,0.1)" }),
+          yaxis: plotAxis("PSF", { gridcolor: "rgba(95,80,60,0.1)" }),
+          legend: plotLegend(),
+          font: plotFont(),
+          hoverlabel: plotHoverLabel()
         }, { responsive: true, displaylogo: false });
       }
 
@@ -2005,6 +2686,7 @@
           document.getElementById("plot-2d-grid").innerHTML = "";
           return;
         }
+        const typography = plotTypography();
         const grid = document.getElementById("plot-2d-grid");
         const cards = [];
         state.ctfs.forEach((ctf, index) => {
@@ -2013,7 +2695,7 @@
         if (state.showAvg && state.ctfs.length > 1) {
           cards.push({ id: "ctf2d-average", title: "average" });
         }
-        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:${typography.cardTitleSize}px;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
 
         const maps = state.ctfs.map((ctf) => ctf2d(ctf, { plotS2: state.plotS2, envOnly: state.envOnly }));
         maps.forEach((map, index) => {
@@ -2032,9 +2714,10 @@
             paper_bgcolor: "rgba(0,0,0,0)",
             plot_bgcolor: "#ffffff",
             margin: { l: 46, r: 10, t: 10, b: 42 },
-            xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
-            yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
-            font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+            xaxis: plotAxis(ctf2DAxisLabel("x"), { constrain: "domain" }),
+            yaxis: plotAxis(ctf2DAxisLabel("y"), { scaleanchor: "x", scaleratio: 1, constrain: "domain" }),
+            font: plotFont(),
+            hoverlabel: plotHoverLabel()
           }, { responsive: true, displaylogo: false });
         });
 
@@ -2058,9 +2741,10 @@
               paper_bgcolor: "rgba(0,0,0,0)",
               plot_bgcolor: "#ffffff",
               margin: { l: 46, r: 10, t: 10, b: 42 },
-              xaxis: { title: state.plotS2 ? "s²x" : "sx", constrain: "domain" },
-              yaxis: { title: state.plotS2 ? "s²y" : "sy", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
-              font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+              xaxis: plotAxis(ctf2DAxisLabel("x"), { constrain: "domain" }),
+              yaxis: plotAxis(ctf2DAxisLabel("y"), { scaleanchor: "x", scaleratio: 1, constrain: "domain" }),
+              font: plotFont(),
+              hoverlabel: plotHoverLabel()
             }, { responsive: true, displaylogo: false });
           }
         }
@@ -2071,12 +2755,13 @@
           document.getElementById("plot-psf2d-grid").innerHTML = "";
           return;
         }
+        const typography = plotTypography();
         const grid = document.getElementById("plot-psf2d-grid");
         const cards = state.ctfs.map((ctf, index) => ({ id: `psf2d-${index}`, title: traceLabel(ctf, index, varyingKeys(state.ctfs)) }));
         if (state.showAvg && state.ctfs.length > 1) {
           cards.push({ id: "psf2d-average", title: "average" });
         }
-        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:${typography.cardTitleSize}px;">${card.title}</h3><div id="${card.id}" class="plot-card square"></div></div>`).join("");
 
         const maps = state.ctfs.map((ctf) => psf2d(ctf, { envOnly: state.envOnly }));
         maps.forEach((map, index) => {
@@ -2096,9 +2781,10 @@
             paper_bgcolor: "rgba(0,0,0,0)",
             plot_bgcolor: "#ffffff",
             margin: { l: 46, r: 10, t: 10, b: 42 },
-            xaxis: { title: "x (Å)", constrain: "domain" },
-            yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
-            font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+            xaxis: plotAxis("x (Å)", { constrain: "domain" }),
+            yaxis: plotAxis("y (Å)", { scaleanchor: "x", scaleratio: 1, constrain: "domain" }),
+            font: plotFont(),
+            hoverlabel: plotHoverLabel()
           }, { responsive: true, displaylogo: false });
         });
 
@@ -2132,9 +2818,10 @@
               paper_bgcolor: "rgba(0,0,0,0)",
               plot_bgcolor: "#ffffff",
               margin: { l: 46, r: 10, t: 10, b: 42 },
-              xaxis: { title: "x (Å)", constrain: "domain" },
-              yaxis: { title: "y (Å)", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
-              font: { family: '"Iowan Old Style", "Palatino Linotype", serif', color: "#2b2114" }
+              xaxis: plotAxis("x (Å)", { constrain: "domain" }),
+              yaxis: plotAxis("y (Å)", { scaleanchor: "x", scaleratio: 1, constrain: "domain" }),
+              font: plotFont(),
+              hoverlabel: plotHoverLabel()
             }, { responsive: true, displaylogo: false });
           }
         }
@@ -2145,6 +2832,7 @@
           document.getElementById("image-grid").innerHTML = "";
           return;
         }
+        const typography = plotTypography();
         const size = clampInt(state.ctfs[0].imagesize * state.ctfs[0].over_sample, 16, 1024);
         let imageData;
         let sourceImageUrl = "";
@@ -2190,7 +2878,7 @@
           cards.push({ id: "image-average", title: "average" });
         }
         const grid = document.getElementById("image-grid");
-        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:1rem;">${card.title}</h3><div id="${card.id}" class="plot-card image-display-card" style="--image-aspect:${imageData.width} / ${imageData.height};"></div></div>`).join("");
+        grid.innerHTML = cards.map((card) => `<div><h3 style="margin-bottom:8px; font-size:${typography.cardTitleSize}px;">${card.title}</h3><div id="${card.id}" class="plot-card image-display-card" style="--image-aspect:${imageData.width} / ${imageData.height};"></div></div>`).join("");
 
         if (sourceImageUrl) {
           renderNativeImage("image-original", sourceImageUrl, "Original image");
@@ -2266,7 +2954,9 @@
           margin: { l: 0, r: 0, t: 0, b: 0 },
           xaxis: { visible: false, constrain: "domain" },
           yaxis: { visible: false, autorange: "reversed", scaleanchor: "x", scaleratio: 1, constrain: "domain" },
-          annotations: []
+          annotations: [],
+          font: plotFont(),
+          hoverlabel: plotHoverLabel()
         }, { responsive: true, displaylogo: false });
       }
 
@@ -2310,11 +3000,14 @@
         renderNonce += 1;
         const nonce = renderNonce;
         state.count = clampInt(state.count, 1, 6);
+        hideRichTooltip();
         while (state.ctfs.length < state.count) {
           state.ctfs.push(cloneCtf());
         }
         state.ctfs = state.ctfs.slice(0, state.count).map((ctf) => ({ ...cloneCtf(), ...ctf }));
+        renderFormulaBanner();
         renderControls();
+        setHidden("plot-1d-head", !state.show2D);
         const warnings = [];
         renderPlot1D(warnings);
         renderTable();
@@ -2355,6 +3048,13 @@
           "share-url": "shareUrl",
           "show-qr": "showQr"
         };
+        const numericControlMap = {
+          "plot-font-base": ["plotFontBase", 8, 40],
+          "plot-font-axis-title": ["plotFontAxisTitle", 8, 48],
+          "plot-font-tick": ["plotFontTick", 8, 36],
+          "plot-font-legend": ["plotFontLegend", 8, 36],
+          "plot-font-card-title": ["plotFontCardTitle", 8, 36]
+        };
 
         if (target.id === "ctf-count") {
           state.count = clampInt(Number(target.value), 1, 6);
@@ -2364,6 +3064,17 @@
         }
         if (target.id in toggleMap) {
           state[toggleMap[target.id]] = target.checked;
+          void render();
+          return;
+        }
+        if (target.id in numericControlMap) {
+          const [stateKey, min, max] = numericControlMap[target.id];
+          state[stateKey] = clampInt(Number(target.value), min, max);
+          void render();
+          return;
+        }
+        if (target.id === "plot-font-family") {
+          state.plotFontFamily = target.value in PLOT_FONT_FAMILIES ? target.value : DEFAULT_STATE.plotFontFamily;
           void render();
           return;
         }
@@ -2417,13 +3128,33 @@
         state.accordionOpen[index] = details.open;
       }
 
+      function onSidebarClick(event) {
+        const option = event.target.closest("[data-font-family-option]");
+        if (!(option instanceof HTMLButtonElement)) {
+          return;
+        }
+        const value = option.getAttribute("data-font-family-option");
+        state.plotFontFamily = value in PLOT_FONT_FAMILIES ? value : DEFAULT_STATE.plotFontFamily;
+        const picker = document.getElementById("plot-font-family-picker");
+        if (picker instanceof HTMLDetailsElement) {
+          picker.open = false;
+        }
+        void render();
+      }
+
       document.querySelector(".sidebar").addEventListener("change", onSidebarInput);
+      document.querySelector(".sidebar").addEventListener("click", onSidebarClick);
       document.querySelector(".sidebar").addEventListener("toggle", onAccordionToggle, true);
       document.getElementById("reset-state").addEventListener("click", resetState);
       document.getElementById("download-csv").addEventListener("click", downloadCsv);
 
       initializeSidebarWidth();
       setupSidebarResizer();
+      window.addEventListener("scroll", hideRichTooltip, true);
+      window.addEventListener("resize", hideRichTooltip);
+      window.addEventListener("resize", () => {
+        syncViewportPlotHeight("plot-1d", 560, 24);
+      });
       renderFormulaBanner();
       window.addEventListener("load", renderFormulaBanner);
       void render();

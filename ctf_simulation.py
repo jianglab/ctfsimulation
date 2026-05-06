@@ -65,9 +65,10 @@ def main():
         col_params, col_1d = st.columns((1, 5))
     else:
         col_params = st.sidebar
-        st.info(ctf_latex())
+        st.info(ctf_latex(colored_attrs=ctf_varying_equation_parameters(ctfs)))
 
     with col_params:
+        varying_equation_attrs = ctf_varying_equation_parameters(ctfs)
         if embedded:
             n = 1
         else:
@@ -96,31 +97,31 @@ def main():
                 if not embedded:
                     options = ('CTF', '|CTF|', 'CTF^2')
                     st.radio(label='CTF type', options=options, index=0, horizontal=True, key=f"ctf_type_{i}")
-                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"{ctf_latex(colored_attrs=['defocus'])}  \nPositive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
+                st.number_input('defocus (µm)', value=st.session_state[f"defocus_{i}"], step=0.1, format="%.5g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['defocus']))}  \nPositive number for under-focus and negative number for over-focus. Scherzer defocus = {ctfs[i].scherzer_defocus(extended=False):.4f} µm. extended Scherzer defocus = {ctfs[i].scherzer_defocus():.4f} µm", key=f"defocus_{i}")
                 if embedded:
                     rotavg = False
                 else:
                     if ctfs[i].ctf_type=='|CTF|':
                         defocus_wrong_empties[i] = st.empty()
-                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=['dfdiff'])}  \nMagnitude of astimgatism (=maximal defocus - minimal defocus)", key=f"dfdiff_{i}")
+                    st.number_input('astigmatism mag (µm)', value=st.session_state[f"dfdiff_{i}"], min_value=0.0, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['dfdiff']))}  \nMagnitude of astimgatism (=maximal defocus - minimal defocus)", key=f"dfdiff_{i}")
                     if n==1 and ctfs[i].dfdiff:
                         value = ctfs[i].ctf_type == 2
                         rotavg = st.checkbox(label='plot rotational average', value=value, key="rotavg")
                     else:
                         rotavg = False
-                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=['dfang'])}  \nMInplane angle of the maximal dofocus direction", key=f"dfang_{i}")
-                st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=['phaseshift'])}  \nPhase shift from phase plate", key=f"phaseshift_{i}")
-                st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=['sampling'])}  \nPixel size of the image. It determines the spatial frequency in the Fourier space. The spatial frequency at the edge of the Fourier transform (e.g. Nyquiest) is 1/(2*pixel size)", key=f"apix_{i}")
+                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['dfang']))}  \nMInplane angle of the maximal dofocus direction", key=f"dfang_{i}")
+                st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['phaseshift']))}  \nPhase shift from phase plate", key=f"phaseshift_{i}")
+                st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['sampling']))}  \nPixel size of the image. It determines the spatial frequency in the Fourier space. The spatial frequency at the edge of the Fourier transform (e.g. Nyquiest) is 1/(2*pixel size)", key=f"apix_{i}")
                 apix_wrong_empties.append(st.empty())
-                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=['voltage'])}  \n" + r"${\textcolor{red}{\lambda}}=\frac{h}{\sqrt{2m_0e{\textcolor{red}{V}}(1+\frac{e{\textcolor{red}{V}}}{2m_0c^2)})}}$" + "  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
-                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", help=f"{ctf_latex(colored_attrs=['cs'])}  \nSpherical aberration coefficient", key=f"cs_{i}")
-                st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['ampcontrast'])}  \nAmplitude contrast (0-100)", key=f"ampcontrast_{i}")
+                st.number_input('voltage (kV)', value=st.session_state[f"voltage_{i}"], min_value=10., step=100., format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['voltage']))}  \n" + r"${\textcolor{red}{\lambda}}=\frac{h}{\sqrt{2m_0e{\textcolor{red}{V}}(1+\frac{e{\textcolor{red}{V}}}{2m_0c^2)})}}$" + "  \nAccelerating voltage of the gun. It determines the electron wave length", key=f"voltage_{i}")
+                st.number_input('cs (mm)', value=st.session_state[f"cs_{i}"], min_value=-3.0, step=0.1, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['cs']))}  \nSpherical aberration coefficient", key=f"cs_{i}")
+                st.number_input('amplitude contrast (percent)', value=st.session_state[f"ampcontrast_{i}"], min_value=0.0, max_value=100., step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['ampcontrast']))}  \nAmplitude contrast (0-100)", key=f"ampcontrast_{i}")
                 if not embedded:
                     st.number_input('image size (pixel)', value=int(st.session_state[f"imagesize_{i}"]), min_value=16, max_value=4096, step=4, key=f"imagesize_{i}")
-                    st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, help=f"{ctf_latex(colored_attrs=['sampling'])}  \nIncrease the image size to n times of the original size. It will make the Fourier space pixel size n time finer to better sample the CTF oscillations", key=f"over_sample_{i}")
+                    st.slider('over-sample (1x, 2x, 3x, etc)', value=int(st.session_state[f"over_sample_{i}"]), min_value=1, max_value=6, step=1, help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['sampling']))}  \nIncrease the image size to n times of the original size. It will make the Fourier space pixel size n time finer to better sample the CTF oscillations", key=f"over_sample_{i}")
                 
                     #with st.expander("envelope functions", expanded=False):
-                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=['bfactor'])}  \nEnvelope function", key=f"bfactor_{i}")
+                    st.number_input('b-factor (Å^2)', value=st.session_state[f"bfactor_{i}"], min_value=0.0, step=10.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['bfactor']))}  \nEnvelope function", key=f"bfactor_{i}")
                     st.number_input('beam convergence semi-angle (mrad)', value=st.session_state[f"alpha_{i}"], min_value=0.0, step=0.05, format="%g", key=f"alpha_{i}")
                     dE = st.number_input('energy spread (eV)', value=st.session_state[f"dE_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dE_{i}")
                     dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
@@ -233,7 +234,7 @@ def main():
             hover_tips = [("Res", "@res Å"), (hover_x_var, hover_x_val), ("fval", "$y")]
             if n>1 or (n==1 and ctfs[0].dfdiff):
                 hover_tips = [("CTF type", "@ctf_type"), ("Defocus", "@defocus µm")] + hover_tips
-            fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, tools=tools, tooltips=hover_tips)
+            fig = figure(title="", x_axis_label=x_label, y_axis_label=y_label, tools=tools, tooltips=hover_tips, height=512, frame_height=480, sizing_mode="stretch_width")
             fig.title.align = "center"
             fig.title.text_font_size = "32px"
             fig.xaxis.axis_label_text_font_size = "24pt"
@@ -818,6 +819,24 @@ def ctf_varying_parameter_labels(ctfs):
             ret = [""]
     return ret
 
+def ctf_varying_equation_parameters(ctfs):
+    attr_mapping = {
+        "apix": "sampling",
+    }
+    colored_attrs = []
+    for attr in ctf_varying_parameters(ctfs):
+        colored_attr = attr_mapping.get(attr, attr)
+        if colored_attr not in colored_attrs:
+            colored_attrs.append(colored_attr)
+    return colored_attrs
+
+def merge_colored_attrs(base_attrs, extra_attrs):
+    merged_attrs = list(base_attrs)
+    for attr in extra_attrs:
+        if attr not in merged_attrs:
+            merged_attrs.append(attr)
+    return merged_attrs
+
 def ctf_varying_parameters(ctfs):
     if len(ctfs)<2: return []
     attrs = "voltage cs ampcontrast defocus defocus_wrong dfdiff dfang phaseshift bfactor alpha cc dE dI dZ dXY apix apix_wrong imagesize over_sample ctf_type show_marker ctf_intact_first_peak".split()
@@ -1023,7 +1042,8 @@ class CTF:
         del gamma, env, phaseshift, defocus2d, s, s2, theta
         return ds, ds2, ctf
 
-def ctf_latex(colored_attrs=[]):
+def ctf_latex(colored_attrs=None):
+    colored_attrs = colored_attrs or []
     mapping = dict(sampling="s", voltage=r"\lambda", defocus=r"\Delta f", dfdiff=r"\Delta\Delta f", dfang=r"\\theta_0", cs="C_s", bfactor="B", phaseshift=r"\phi", ampcontrast="Q")
     mapping2 = {}
     for attr in mapping:
