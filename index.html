@@ -21,7 +21,7 @@
         color-scheme: light;
         --bg: #ffffff;
         --sidebar-bg: #f0f2f6;
-        --sidebar-width: 300px;
+        --sidebar-width: 260px;
         --panel: #ffffff;
         --panel-border: rgba(49, 51, 63, 0.10);
         --ink: #31333f;
@@ -72,8 +72,7 @@
       .sidebar button,
       .sidebar .accordion-summary,
       .sidebar .toggle label,
-      .sidebar .small,
-      .sidebar .mini-note {
+      .sidebar .small {
         font-size: 0.94rem;
       }
 
@@ -159,17 +158,17 @@
         border-radius: 0.85rem;
       }
 
+      #ctf-list.lite-flat .ctf-card {
+        background: transparent;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+
       .ctf-card.accordion {
         padding: 0;
         overflow: hidden;
-      }
-
-      .ctf-card h3 {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 1rem;
-        margin-bottom: 12px;
       }
 
       .accordion-summary {
@@ -219,14 +218,43 @@
 
       .field-grid {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: 1fr;
         gap: 10px 12px;
+      }
+
+      @media (min-width: 721px) {
+        #ctf-list .ctf-card.accordion .field-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        #general-display-options .field-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       .field {
         display: flex;
         flex-direction: column;
         gap: 5px;
+      }
+
+      .dual-input {
+        display: grid;
+        grid-template-columns: 1fr;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .dual-input input[type="range"] {
+        min-height: auto;
+        height: 1.25rem;
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+
+      .defocus-field .defocus-value {
+        width: 100%;
       }
 
       .field.full {
@@ -263,6 +291,14 @@
       input[type="number"],
       input[type="text"] {
         min-height: 2.5rem;
+      }
+
+      .sidebar.regular-mode select,
+      .sidebar.regular-mode input[type="number"],
+      .sidebar.regular-mode input[type="text"] {
+        min-height: 2.3rem;
+        padding-top: 0.58rem;
+        padding-bottom: 0.58rem;
       }
 
       .font-picker {
@@ -508,8 +544,9 @@
       .rich-tooltip {
         position: fixed;
         z-index: 1000;
-        width: min(56rem, calc(100vw - 24px));
-        max-width: min(56rem, calc(100vw - 24px));
+        width: fit-content;
+        min-width: min(18rem, calc(100vw - 24px));
+        max-width: min(52rem, calc(100vw - 24px));
         padding: 0.85rem 1rem;
         border-radius: 0.85rem;
         border: 1px solid rgba(49, 51, 63, 0.12);
@@ -520,6 +557,11 @@
         transform: translateY(4px);
         transition: opacity 100ms ease, transform 100ms ease;
         pointer-events: none;
+      }
+
+      .rich-tooltip.has-equation {
+        min-width: min(30rem, calc(100vw - 24px));
+        max-width: min(64rem, calc(100vw - 24px));
       }
 
       .rich-tooltip.visible {
@@ -545,10 +587,16 @@
         margin: 0;
       }
 
+      .rich-tooltip-equation .katex {
+        font-size: 1.12em;
+      }
+
       .rich-tooltip-copy {
         font-size: 0.92rem;
         line-height: 1.45;
         color: var(--muted);
+        white-space: normal;
+        word-break: break-word;
       }
 
       .stack {
@@ -624,13 +672,6 @@
 
       .sidebar .panel.formula {
         display: none;
-      }
-
-      .mini-note {
-        margin-top: 8px;
-        color: var(--muted);
-        font-size: 0.8rem;
-        line-height: 1.4;
       }
 
       .learn-more {
@@ -723,7 +764,7 @@
         </div>
         <div id="ctf-list"></div>
         <div class="panel">
-          <details class="ctf-card accordion" open>
+          <details class="ctf-card accordion" id="ctf-display-options" open>
             <summary class="accordion-summary">
               <span class="accordion-title">
                 <span>CTF Display Options</span>
@@ -733,6 +774,10 @@
             <div class="accordion-body">
               <div class="control-grid">
                 <div class="field toggle" style="align-self: end;">
+                    <input id="lite-mode" type="checkbox" />
+                    <label for="lite-mode">Lite mode (basic 1D only)</label>
+                  </div>
+                  <div class="field toggle" style="align-self: end;">
                   <input id="show-average" type="checkbox" />
                   <label for="show-average">Show average CTF</label>
                 </div>
@@ -775,7 +820,7 @@
               </div>
             </div>
           </details>
-          <details class="ctf-card accordion">
+          <details class="ctf-card accordion" id="general-display-options">
             <summary class="accordion-summary">
               <span class="accordion-title">
                 <span>General Display Options</span>
@@ -1001,6 +1046,8 @@
 
       const DEFAULT_STATE = {
         count: 1,
+        liteMode: false,
+          defocusRanges: [{ min: 0, max: 5 }],
         plotS2: false,
         envOnly: false,
         showAvg: false,
@@ -1043,6 +1090,9 @@
         courier: '"Courier New", Courier, monospace'
       };
 
+      const DEFOCUS_SLIDER_MIN = 0;
+      const DEFOCUS_SLIDER_MAX = 5;
+
       const INTEGER_CTF_FIELDS = new Set(["imagesize", "over_sample"]);
       const SIDEBAR_WIDTH_KEY = "ctf-sidebar-width";
       const IMAGE_URL_CACHE = new Map();
@@ -1050,6 +1100,7 @@
       const FILTERED_IMAGE_CACHE_MAX = 24;
       const TOOLTIP_BY_ID = {
         "ctf-count": "Number of CTF curves to show.",
+        "lite-mode": "Limit the app to one basic 1D CTF configuration and hide advanced features.",
         "show-average": "Plot the average CTF when multiple curves share compatible settings.",
         "env-only": "Show only envelope terms instead of the full oscillatory CTF.",
         "show-data": "Show sampled raw CTF values in a table and CSV export.",
@@ -1152,7 +1203,7 @@
         ampcontrast: "Amplitude contrast Q. It contributes the asin(Q) phase offset term."
       };
       const EQUATION_FIELDS_BY_SYMBOL = {
-        sampling: ["apix", "over_sample"],
+        sampling: ["apix", "imagesize", "over_sample"],
         voltage: ["voltage"],
         defocus: ["defocus"],
         dfdiff: ["dfdiff"],
@@ -1166,21 +1217,23 @@
       let lastRenderData = [];
       let renderNonce = 0;
 
+      const LITE_CTF_FIELDS = new Set([
+        "ctf_type",
+        "defocus",
+        "phaseshift",
+        "apix",
+        "voltage",
+        "cs",
+        "ampcontrast",
+        "imagesize",
+        "show_marker"
+      ]);
+
       function applyTooltip(element, text) {
         if (!element || !text) {
           return;
         }
         element.setAttribute("title", text);
-      }
-
-      function mergeUnique(base, extra) {
-        const merged = [...base];
-        extra.forEach((value) => {
-          if (!merged.includes(value)) {
-            merged.push(value);
-          }
-        });
-        return merged;
       }
 
       function varyingEquationAttrs(ctfs) {
@@ -1209,7 +1262,10 @@
           key,
           formatEquationSymbol(key, coloredSet, interactive)
         ]));
-        return String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(\frac{-2\pi}{${symbols.voltage}}\left(\frac{${symbols.voltage}^2 ${symbols.sampling}^2}{2}\left(${symbols.defocus}+${symbols.dfdiff}\cos\left(2\left(\theta-${symbols.dfang}\right)\right) - \frac{${symbols.voltage}^4 ${symbols.sampling}^4}{4}${symbols.cs}\right)\right)+\sin^{-1}(${symbols.ampcontrast})+${symbols.phaseshift}\right)e^{-${symbols.bfactor}${symbols.sampling}^2/4}`;
+        if (state.liteMode) {
+          return String.raw`\mathrm{CTF}(s) \approx \sin\!\left(2\pi\left(-\frac{1}{2}${symbols.defocus}\,${symbols.voltage}\,${symbols.sampling}^2 + \frac{1}{4}${symbols.cs}\,${symbols.voltage}^3\,${symbols.sampling}^4\right)-\sin^{-1}(${symbols.ampcontrast})-${symbols.phaseshift}\right)`;
+        }
+        return String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(2\pi\left(-\frac{1}{2}${symbols.voltage}\,${symbols.sampling}^2\left(${symbols.defocus}+${symbols.dfdiff}\cos\left(2\left(\theta-${symbols.dfang}\right)\right)\right)+\frac{1}{4}${symbols.cs}\,${symbols.voltage}^3\,${symbols.sampling}^4\right)-\sin^{-1}(${symbols.ampcontrast})-${symbols.phaseshift}\right)e^{-${symbols.bfactor}${symbols.sampling}^2/4}`;
       }
 
       function applyFormulaBannerTooltips() {
@@ -1291,22 +1347,18 @@
         };
       }
 
-      function positionRichTooltip(target) {
+      function positionRichTooltip(mouseX, mouseY) {
         const tooltip = document.getElementById("rich-tooltip");
-        if (!(tooltip instanceof HTMLDivElement) || !target) {
+        if (!(tooltip instanceof HTMLDivElement)) {
           return;
         }
         const spacing = 12;
-        const targetRect = target.getBoundingClientRect();
         const tooltipRect = tooltip.getBoundingClientRect();
-        let left = targetRect.right + spacing;
-        if (left + tooltipRect.width > window.innerWidth - spacing) {
-          left = targetRect.left - tooltipRect.width - spacing;
-        }
+        let left = mouseX;
         left = Math.max(spacing, Math.min(left, window.innerWidth - tooltipRect.width - spacing));
-        let top = targetRect.top;
+        let top = mouseY + spacing + 16; // below cursor
         if (top + tooltipRect.height > window.innerHeight - spacing) {
-          top = window.innerHeight - tooltipRect.height - spacing;
+          top = mouseY - tooltipRect.height - spacing; // flip above cursor if no room below
         }
         top = Math.max(spacing, top);
         tooltip.style.left = `${left}px`;
@@ -1319,6 +1371,7 @@
           return;
         }
         tooltip.classList.remove("visible");
+        tooltip.classList.remove("has-equation");
         tooltip.hidden = true;
       }
 
@@ -1338,13 +1391,14 @@
 
         equationNode.classList.toggle("hidden", !equation);
         copyNode.classList.toggle("hidden", !text);
+        tooltip.classList.toggle("has-equation", Boolean(equation));
         copyNode.textContent = text;
 
         if (equation) {
           if (typeof window.katex?.render === "function") {
             window.katex.render(equation, equationNode, { displayMode: true, throwOnError: false });
           } else {
-            equationNode.textContent = equation;
+            equationNode.textContent = state.liteMode ? equation : equation.replaceAll("\\lambda", "λ");
           }
         } else {
           equationNode.textContent = "";
@@ -1352,7 +1406,7 @@
 
         tooltip.hidden = false;
         tooltip.classList.add("visible");
-        positionRichTooltip(target);
+        positionRichTooltip(target._tooltipMouseX ?? 0, target._tooltipMouseY ?? 0);
       }
 
       function applyRichTooltip(element, tooltip) {
@@ -1370,9 +1424,10 @@
         element.dataset.tooltipEquation = equation;
         element.removeAttribute("title");
         if (!element.dataset.richTooltipBound) {
-          element.addEventListener("mouseenter", () => showRichTooltip(element));
+          element.addEventListener("mouseenter", (e) => { element._tooltipMouseX = e.clientX; element._tooltipMouseY = e.clientY; showRichTooltip(element); });
+          element.addEventListener("mousemove", (e) => { element._tooltipMouseX = e.clientX; element._tooltipMouseY = e.clientY; positionRichTooltip(e.clientX, e.clientY); });
           element.addEventListener("mouseleave", hideRichTooltip);
-          element.addEventListener("focus", () => showRichTooltip(element));
+          element.addEventListener("focus", (e) => { if (e.clientX || e.clientY) { element._tooltipMouseX = e.clientX; element._tooltipMouseY = e.clientY; } showRichTooltip(element); });
           element.addEventListener("blur", hideRichTooltip);
           element.dataset.richTooltipBound = "1";
         }
@@ -1391,6 +1446,9 @@
         document.querySelectorAll("#ctf-list [data-field]").forEach((control) => {
           const field = control.getAttribute("data-field");
           let text = TOOLTIP_BY_FIELD[field];
+          if (field === "defocus" && control instanceof HTMLInputElement && control.dataset.defocusInput === "value") {
+            text = `${text} Tip: enter < max_defocus to set max, or > min_defocus to set min.`;
+          }
           if (field === "defocus" || field === "defocus_wrong") {
             const card = control.closest("[data-index]");
             const index = Number(card?.getAttribute("data-index"));
@@ -1429,13 +1487,14 @@
       }
 
       function initializeSidebarWidth() {
-        let stored = 300;
+        const defaultWidth = state.liteMode ? 260 : 280;
+        let stored = defaultWidth;
         try {
           stored = Number(window.localStorage.getItem(SIDEBAR_WIDTH_KEY) || stored);
         } catch {
-          stored = 300;
+          stored = defaultWidth;
         }
-        applySidebarWidth(Number.isFinite(stored) ? stored : 300);
+        applySidebarWidth(Number.isFinite(stored) ? stored : defaultWidth);
       }
 
       function renderFormulaBanner() {
@@ -1452,7 +1511,11 @@
           return;
         }
         banner.classList.add("fallback");
-        banner.textContent = "CTF(s, θ) ≈ sin((-2π / λ)((λ²s² / 2)(Δf + ΔΔf cos(2(θ - θ₀))) - (λ⁴s⁴ / 4)Cₛ) + sin⁻¹(Q) + ϕ)e^(-Bs² / 4)";
+        if (state.liteMode) {
+          banner.textContent = "CTF(s) ≈ sin(2π(-0.5Δfλs² + 0.25Cₛλ³s⁴) - sin⁻¹(Q) - ϕ)";
+          return;
+        }
+        banner.textContent = "CTF(s, θ) ≈ sin(2π(-0.5λs²(Δf + ΔΔf cos(2(θ - θ₀))) + 0.25Cₛλ³s⁴) - sin⁻¹(Q) - ϕ)e^(-Bs² / 4)";
       }
 
       function setupSidebarResizer() {
@@ -1500,6 +1563,7 @@
         const params = new URLSearchParams(window.location.search);
         const next = structuredClone(DEFAULT_STATE);
         next.count = clampInt(Number(params.get("count") || next.count), 1, 6);
+        next.liteMode = params.get("lite") === "1" || params.get("liteMode") === "1";
         next.plotS2 = params.get("plotS2") === "1";
         next.envOnly = params.get("envOnly") === "1";
         next.showAvg = params.get("showAvg") === "1";
@@ -1534,6 +1598,41 @@
         return next;
       }
 
+      function enforceLiteModeState() {
+        if (!state.liteMode) {
+          return;
+        }
+
+        state.count = 1;
+        state.plotS2 = false;
+        state.envOnly = false;
+        state.showAvg = false;
+        state.showData = false;
+        state.showPSF = false;
+        state.show2D = false;
+        state.rotAvg = false;
+        state.simulateImage = false;
+        state.simulateWrongApix = false;
+        state.simulateWrongDefocus = false;
+
+        const base = { ...cloneCtf(), ...(state.ctfs[0] || {}) };
+        Object.keys(base).forEach((key) => {
+          if (!LITE_CTF_FIELDS.has(key)) {
+            base[key] = DEFAULT_CTF[key];
+          }
+        });
+        state.ctfs = [base];
+        state.accordionOpen = [Boolean(state.accordionOpen?.[0] ?? true)];
+      }
+
+      function setControlFieldHidden(id, hidden) {
+        const control = document.getElementById(id);
+        const field = control?.closest(".field");
+        if (field instanceof HTMLElement) {
+          field.classList.toggle("hidden", hidden);
+        }
+      }
+
       function currentUrl(query) {
         const href = new URL(window.location.href);
         href.search = query ? `?${query}` : "";
@@ -1544,9 +1643,27 @@
         return Array.from({ length: count }, (_, index) => Boolean(current[index]));
       }
 
+      function normalizedDefocusRanges(count, current = [], ctfs = []) {
+        return Array.from({ length: count }, (_, index) => {
+          const fallbackValue = Number(ctfs[index]?.defocus) || 0;
+          const existing = current[index] || {};
+          let min = Number(existing.min);
+          let max = Number(existing.max);
+          if (!Number.isFinite(min)) min = Math.floor((fallbackValue - 5) * 10) / 10;
+          if (!Number.isFinite(max)) max = Math.ceil((fallbackValue + 5) * 10) / 10;
+          if (min > max) {
+            [min, max] = [max, min];
+          }
+          min = Math.min(min, fallbackValue);
+          max = Math.max(max, fallbackValue);
+          return { min, max };
+        });
+      }
+
       function buildStateQuery() {
         const params = new URLSearchParams();
         if (state.count !== DEFAULT_STATE.count) params.set("count", String(state.count));
+        if (state.liteMode) params.set("lite", "1");
         if (state.plotS2) params.set("plotS2", "1");
         if (state.envOnly) params.set("envOnly", "1");
         if (state.showAvg) params.set("showAvg", "1");
@@ -2342,7 +2459,9 @@
 
       function renderControls() {
         state.accordionOpen = normalizedAccordionOpen(state.count, state.accordionOpen);
+        state.defocusRanges = normalizedDefocusRanges(state.count, state.defocusRanges, state.ctfs);
         document.getElementById("ctf-count").value = state.count;
+        document.getElementById("lite-mode").checked = state.liteMode;
         document.getElementById("plot-s2").checked = state.plotS2;
         document.getElementById("env-only").checked = state.envOnly;
         document.getElementById("show-average").checked = state.showAvg;
@@ -2363,6 +2482,32 @@
         document.getElementById("plot-font-card-title").value = state.plotFontCardTitle;
         document.getElementById("image-mode").value = state.imageMode;
         document.getElementById("image-url").value = state.imageUrl;
+        document.getElementById("ctf-list").classList.toggle("lite-flat", state.liteMode);
+        const sidebar = document.querySelector(".sidebar");
+        if (sidebar instanceof HTMLElement) sidebar.classList.toggle("regular-mode", !state.liteMode);
+
+        setControlFieldHidden("lite-mode", true);
+        setHidden("reset-state", true);
+
+        setControlFieldHidden("ctf-count", state.liteMode);
+        setControlFieldHidden("show-average", state.liteMode);
+        setControlFieldHidden("env-only", state.liteMode);
+        setControlFieldHidden("show-data", state.liteMode);
+        setControlFieldHidden("show-psf", state.liteMode);
+        setControlFieldHidden("show-2d", state.liteMode);
+        setControlFieldHidden("rot-avg", state.liteMode);
+        setControlFieldHidden("simulate-image", state.liteMode);
+        setControlFieldHidden("simulate-wrong-apix", state.liteMode);
+        setControlFieldHidden("simulate-wrong-defocus", state.liteMode);
+        setControlFieldHidden("plot-s2", state.liteMode);
+
+        const ctfDisplayDetails = document.getElementById("ctf-display-options");
+        if (ctfDisplayDetails) {
+          ctfDisplayDetails.open = true;
+          ctfDisplayDetails.classList.toggle("hidden", state.liteMode);
+        }
+        document.getElementById("general-display-options").classList.toggle("hidden", state.liteMode);
+
         document.getElementById("share-block").hidden = !state.showQr;
         setHidden("image-controls", !state.simulateImage);
         setHidden("image-url-field", state.imageMode !== "url");
@@ -2382,7 +2527,7 @@
 
         const container = document.getElementById("ctf-list");
         container.innerHTML = state.ctfs.map((ctf, index) => {
-          const body = `
+          const fullBody = `
             <div class="field-grid">
               <div class="field full">
                 <label>CTF type</label>
@@ -2392,16 +2537,16 @@
                   <option value="CTF^2" ${ctf.ctf_type === "CTF^2" ? "selected" : ""}>CTF^2</option>
                 </select>
               </div>
-              ${numberField("defocus", "Defocus (µm)", ctf.defocus, 0.1)}
+              ${defocusDualField(ctf.defocus, state.defocusRanges[index])}
               ${state.simulateWrongDefocus ? numberField("defocus_wrong", "Wrong defocus (µm)", ctf.defocus_wrong, 0.1) : ""}
               ${numberField("dfdiff", "Astigmatism mag (µm)", ctf.dfdiff, 0.01)}
               ${numberField("dfang", "Astigmatism angle (°)", ctf.dfang, 1)}
-              ${numberField("phaseshift", "Phase shift (°)", ctf.phaseshift, 1)}
-              ${numberField("apix", "Pixel size (Å/pixel)", ctf.apix, 0.01, 0.1)}
-              ${state.simulateWrongApix ? numberField("apix_wrong", "Wrong pixel size (Å/pixel)", ctf.apix_wrong, 0.01, 0.1) : ""}
               ${numberField("voltage", "Voltage (kV)", ctf.voltage, 100, 10)}
               ${numberField("cs", "Cs (mm)", ctf.cs, 0.1)}
               ${numberField("ampcontrast", "Amplitude contrast (%)", ctf.ampcontrast, 1, 0)}
+              ${numberField("phaseshift", "Phase shift (°)", ctf.phaseshift, 1)}
+              ${numberField("apix", "Pixel size (Å/pixel)", ctf.apix, 0.01, 0.1)}
+              ${state.simulateWrongApix ? numberField("apix_wrong", "Wrong pixel size (Å/pixel)", ctf.apix_wrong, 0.01, 0.1) : ""}
               ${numberField("imagesize", "Image size (pixel)", ctf.imagesize, 2, 16)}
               ${numberField("over_sample", "Over-sample", ctf.over_sample, 1, 1)}
               ${numberField("bfactor", "B-factor (Å²)", ctf.bfactor, 10, 0)}
@@ -2420,6 +2565,31 @@
                 <label>Ignore until first peak</label>
               </div>
             </div>`;
+
+          const liteBody = `
+            <div class="field-grid">
+              ${defocusDualField(ctf.defocus, state.defocusRanges[index])}
+              ${numberField("voltage", "Voltage (kV)", ctf.voltage, 100, 10)}
+              ${numberField("cs", "Cs (mm)", ctf.cs, 0.1)}
+              ${numberField("ampcontrast", "Amplitude contrast (%)", ctf.ampcontrast, 1, 0)}
+              ${numberField("phaseshift", "Phase shift (°)", ctf.phaseshift, 1)}
+              ${numberField("imagesize", "Image size (pixel)", ctf.imagesize, 2, 16)}
+              ${numberField("apix", "Pixel size (Å/pixel)", ctf.apix, 0.01, 0.1)}
+              <div class="field toggle">
+                <input data-field="show_marker" type="checkbox" ${ctf.show_marker ? "checked" : ""} />
+                <label>Show markers</label>
+              </div>
+            </div>`;
+
+          const body = state.liteMode ? liteBody : fullBody;
+
+          if (state.liteMode) {
+            return `
+              <div class="ctf-card" data-index="${index}">
+                ${body}
+              </div>
+            `;
+          }
 
           return `
             <details class="ctf-card accordion" data-index="${index}" ${state.accordionOpen[index] ? "open" : ""}>
@@ -2445,6 +2615,24 @@
           <div class="field">
             <label>${label}</label>
             <input data-field="${field}" type="number" step="${step}" value="${escapeAttr(value)}" ${minAttr} />
+          </div>
+        `;
+      }
+
+      function defocusDualField(value, range = { min: DEFOCUS_SLIDER_MIN, max: DEFOCUS_SLIDER_MAX }) {
+        const numericValue = Number.isFinite(Number(value)) ? Number(value) : 0;
+        const rangeMin = Number.isFinite(Number(range?.min)) ? Number(range.min) : DEFOCUS_SLIDER_MIN;
+        const rangeMax = Number.isFinite(Number(range?.max)) ? Number(range.max) : DEFOCUS_SLIDER_MAX;
+        const sliderMin = Math.min(rangeMin, numericValue);
+        const sliderMax = Math.max(rangeMax, numericValue);
+        const clampedSliderValue = Math.max(sliderMin, Math.min(sliderMax, numericValue));
+        return `
+          <div class="field full defocus-field">
+            <label>Defocus (µm)</label>
+            <div class="dual-input">
+              <input class="defocus-value" data-field="defocus" data-defocus-input="value" type="text" inputmode="decimal" value="${escapeAttr(numericValue)}" />
+              <input class="defocus-slider" data-field="defocus" type="range" min="${sliderMin}" max="${sliderMax}" step="0.01" value="${escapeAttr(clampedSliderValue)}" />
+            </div>
           </div>
         `;
       }
@@ -2999,12 +3187,14 @@
       async function render() {
         renderNonce += 1;
         const nonce = renderNonce;
+        enforceLiteModeState();
         state.count = clampInt(state.count, 1, 6);
         hideRichTooltip();
         while (state.ctfs.length < state.count) {
           state.ctfs.push(cloneCtf());
         }
         state.ctfs = state.ctfs.slice(0, state.count).map((ctf) => ({ ...cloneCtf(), ...ctf }));
+        state.defocusRanges = normalizedDefocusRanges(state.count, state.defocusRanges, state.ctfs);
         renderFormulaBanner();
         renderControls();
         setHidden("plot-1d-head", !state.show2D);
@@ -3035,6 +3225,7 @@
         }
 
         const toggleMap = {
+          "lite-mode": "liteMode",
           "plot-s2": "plotS2",
           "env-only": "envOnly",
           "show-average": "showAvg",
@@ -3096,6 +3287,40 @@
         const index = Number(card.getAttribute("data-index"));
         const field = target.getAttribute("data-field");
         if (!field) {
+          return;
+        }
+        if (field === "defocus" && target instanceof HTMLInputElement && target.dataset.defocusInput === "value") {
+          const raw = target.value.trim();
+          const defocusRange = state.defocusRanges[index] || { min: DEFOCUS_SLIDER_MIN, max: DEFOCUS_SLIDER_MAX };
+          if (raw.startsWith(">") || raw.startsWith("<")) {
+            const nextBound = Number(raw.slice(1).trim());
+            if (Number.isFinite(nextBound)) {
+              if (raw.startsWith(">")) {
+                defocusRange.min = nextBound;
+              } else {
+                defocusRange.max = nextBound;
+              }
+              if (defocusRange.min > defocusRange.max) {
+                [defocusRange.min, defocusRange.max] = [defocusRange.max, defocusRange.min];
+              }
+              state.defocusRanges[index] = defocusRange;
+              const currentDefocus = Number(state.ctfs[index].defocus);
+              if (Number.isFinite(currentDefocus)) {
+                state.ctfs[index].defocus = Math.max(defocusRange.min, Math.min(defocusRange.max, currentDefocus));
+                state.ctfs[index].defocus_wrong = state.ctfs[index].defocus_wrong ?? state.ctfs[index].defocus;
+              }
+            }
+            void render();
+            return;
+          }
+          const numericValue = Number(raw);
+          state.ctfs[index].defocus = Number.isFinite(numericValue) ? numericValue : DEFAULT_CTF.defocus;
+          state.defocusRanges[index] = {
+            min: Math.min(defocusRange.min, state.ctfs[index].defocus),
+            max: Math.max(defocusRange.max, state.ctfs[index].defocus)
+          };
+          state.ctfs[index].defocus_wrong = state.ctfs[index].defocus_wrong ?? state.ctfs[index].defocus;
+          void render();
           return;
         }
         if (target instanceof HTMLSelectElement) {
