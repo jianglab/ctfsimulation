@@ -764,7 +764,7 @@
         </div>
         <div id="ctf-list"></div>
         <div class="panel">
-          <details class="ctf-card accordion" id="ctf-display-options" open>
+          <details class="ctf-card accordion" id="ctf-display-options">
             <summary class="accordion-summary">
               <span class="accordion-title">
                 <span>CTF Display Options</span>
@@ -2503,7 +2503,6 @@
 
         const ctfDisplayDetails = document.getElementById("ctf-display-options");
         if (ctfDisplayDetails) {
-          ctfDisplayDetails.open = true;
           ctfDisplayDetails.classList.toggle("hidden", state.liteMode);
         }
         document.getElementById("general-display-options").classList.toggle("hidden", state.liteMode);
