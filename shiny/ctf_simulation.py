@@ -47,9 +47,10 @@ class CTF:
         self.ctf_type = ctf_type
 
     def wave_length(self):
-        wl = 12.2639 / np.sqrt(
-            self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage
-        )  # Angstrom
+        # relativistic electron wavelength from the physical constants (CODATA 2018)
+        h, m0, e, c = 6.62607015e-34, 9.1093837015e-31, 1.602176634e-19, 299792458.0
+        V = self.voltage * 1000.0  # volt
+        wl = h / np.sqrt(2 * m0 * e * V * (1 + e * V / (2 * m0 * c * c))) * 1e10  # Angstrom
         return wl
 
     def ctf1d(self):

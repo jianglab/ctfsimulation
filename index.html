@@ -1127,7 +1127,7 @@
         defocus: "Defocus in um. Positive under-focus, negative over-focus.",
         defocus_wrong: "Alternative defocus used for wrong-defocus simulation.",
         dfdiff: "Astigmatism magnitude (max defocus - min defocus) in um.",
-        dfang: "In-plane angle of maximal defocus direction in degrees.",
+        dfang: "In-plane angle of maximal defocus direction in degrees, counterclockwise from the x axis (as RELION's defocus angle).",
         phaseshift: "Phase shift introduced by phase plate in degrees.",
         apix: "Pixel size in A/pixel. Nyquist is 1 / (2 * pixel size).",
         apix_wrong: "Alternative pixel size used for wrong pixel-size simulation.",
@@ -1141,7 +1141,7 @@
         dE: "Energy spread in eV.",
         dI: "Objective lens current spread in ppm.",
         cc: "Chromatic aberration coefficient Cc in mm.",
-        dZ: "Sample vertical motion in A.",
+        dZ: "Amplitude of a sinusoidal up-and-down vibration of the sample during the exposure, in Å.",
         dXY: "Sample horizontal motion in A.",
         show_marker: "Show markers on 1D CTF traces.",
         ctf_intact_first_peak: "Ignore CTF behavior until first peak (Relion-style option)."
@@ -1165,7 +1165,7 @@
         dE: { label: "Energy spread", unit: "eV" },
         dI: { label: "Current spread", unit: "ppm" },
         cc: { label: "Cc", unit: "mm" },
-        dZ: { label: "Vertical motion", unit: "Å" },
+        dZ: { label: "Vertical vibration", unit: "Å" },
         dXY: { label: "Horizontal motion", unit: "Å" }
       };
       const EQUATION_ATTR_BY_FIELD = {
@@ -1196,7 +1196,7 @@
         voltage: "Electron wavelength λ. It is determined by the accelerating voltage of the microscope.",
         defocus: "Defocus. Positive values indicate under-focus and negative values indicate over-focus.",
         dfdiff: "Astigmatism magnitude, equal to maximal defocus minus minimal defocus.",
-        dfang: "Astigmatism angle θ0, the in-plane direction of maximal defocus.",
+        dfang: "Astigmatism angle θ0, the in-plane direction of maximal defocus, counterclockwise from the x axis (as RELION's defocus angle).",
         cs: "Spherical aberration coefficient Cs.",
         bfactor: "B-factor envelope term that damps higher spatial frequencies.",
         phaseshift: "Additional phase shift φ, for example from a phase plate.",
@@ -1265,7 +1265,7 @@
         if (state.liteMode) {
           return String.raw`\mathrm{CTF}(s) \approx \sin\!\left(2\pi\left(-\frac{1}{2}${symbols.defocus}\,${symbols.voltage}\,${symbols.sampling}^2 + \frac{1}{4}${symbols.cs}\,${symbols.voltage}^3\,${symbols.sampling}^4\right)-\sin^{-1}(${symbols.ampcontrast})-${symbols.phaseshift}\right)`;
         }
-        return String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(2\pi\left(-\frac{1}{2}${symbols.voltage}\,${symbols.sampling}^2\left(${symbols.defocus}+${symbols.dfdiff}\cos\left(2\left(\theta-${symbols.dfang}\right)\right)\right)+\frac{1}{4}${symbols.cs}\,${symbols.voltage}^3\,${symbols.sampling}^4\right)-\sin^{-1}(${symbols.ampcontrast})-${symbols.phaseshift}\right)e^{-${symbols.bfactor}${symbols.sampling}^2/4}`;
+        return String.raw`\mathrm{CTF}(s,\theta) \approx \sin\!\left(2\pi\left(-\frac{1}{2}${symbols.voltage}\,${symbols.sampling}^2\left(${symbols.defocus}+\frac{${symbols.dfdiff}}{2}\cos\left(2\left(\theta-${symbols.dfang}\right)\right)\right)+\frac{1}{4}${symbols.cs}\,${symbols.voltage}^3\,${symbols.sampling}^4\right)-\sin^{-1}(${symbols.ampcontrast})-${symbols.phaseshift}\right)e^{-${symbols.bfactor}${symbols.sampling}^2/4}`;
       }
 
       function applyFormulaBannerTooltips() {
@@ -1515,7 +1515,7 @@
           banner.textContent = "CTF(s) ≈ sin(2π(-0.5Δfλs² + 0.25Cₛλ³s⁴) - sin⁻¹(Q) - ϕ)";
           return;
         }
-        banner.textContent = "CTF(s, θ) ≈ sin(2π(-0.5λs²(Δf + ΔΔf cos(2(θ - θ₀))) + 0.25Cₛλ³s⁴) - sin⁻¹(Q) - ϕ)e^(-Bs² / 4)";
+        banner.textContent = "CTF(s, θ) ≈ sin(2π(-0.5λs²(Δf + ΔΔf/2 cos(2(θ - θ₀))) + 0.25Cₛλ³s⁴) - sin⁻¹(Q) - ϕ)e^(-Bs² / 4)";
       }
 
       function setupSidebarResizer() {
@@ -1728,7 +1728,10 @@
       }
 
       function waveLengthAngstrom(voltage) {
-        return 12.2639 / Math.sqrt(voltage * 1000 + 0.97845 * voltage * voltage);
+        // relativistic electron wavelength from the physical constants (CODATA 2018)
+        const h = 6.62607015e-34, m0 = 9.1093837015e-31, e = 1.602176634e-19, c = 299792458;
+        const V = voltage * 1000; // volt
+        return h / Math.sqrt(2 * m0 * e * V * (1 + e * V / (2 * m0 * c * c))) * 1e10;
       }
 
       function scherzerDefocus(ctf, extended = true) {
@@ -1737,20 +1740,6 @@
           value *= Math.sqrt(4 / 3);
         }
         return value;
-      }
-
-      function sAtFirstPeak(ctf, defocusFinal = ctf.defocus) {
-        const wl = waveLengthAngstrom(ctf.voltage);
-        const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
-        const a = 2 * Math.PI * 0.25 * ctf.cs * 1e7 * wl ** 3;
-        const b = 2 * Math.PI * (-0.5 * defocusFinal * 1e4 * wl);
-        const c = -phaseShift + Math.PI / 2;
-        const disc = b * b - 4 * a * c;
-        if (disc <= 0 || a === 0) {
-          return NaN;
-        }
-        const s2 = (-b - Math.sqrt(disc)) / (2 * a);
-        return s2 > 0 ? Math.sqrt(s2) : NaN;
       }
 
       function j0(x) {
@@ -1916,7 +1905,6 @@
         const wl = waveLengthAngstrom(ctf.voltage);
         const phaseShift = ctf.phaseshift * Math.PI / 180 + Math.asin(ctf.ampcontrast / 100);
         const values = new Float64Array(s.length);
-        const peakLimit = ctf.ctf_intact_first_peak ? sAtFirstPeak(ctf, defocusFinal) : NaN;
 
         for (let index = 0; index < s.length; index += 1) {
           const gamma = 2 * Math.PI * (-0.5 * defocusFinal * 1e4 * wl * s2[index] + 0.25 * ctf.cs * 1e7 * wl ** 3 * s2[index] * s2[index]) - phaseShift;
@@ -1942,7 +1930,8 @@
           }
 
           let ctfValue = Math.sin(gamma);
-          if (ctf.ctf_intact_first_peak && Number.isFinite(peakLimit) && s[index] <= peakLimit) {
+          // as RELION: hold the CTF wherever the phase is within 90° of zero
+          if (ctf.ctf_intact_first_peak && Math.abs(gamma) < Math.PI / 2) {
             ctfValue = -1;
           }
           ctfValue *= env;
@@ -2062,7 +2051,8 @@
           for (let col = 0; col < size; col += 1) {
             const sx = axis[col];
             const sy = axis[row];
-            const theta = -Math.atan2(sy, sx);
+            // the plot's y axis points up: theta counterclockwise from x, as RELION's defocus angle
+            const theta = Math.atan2(sy, sx);
             const s2 = options.plotS2 ? Math.hypot(sx, sy) : (sx * sx + sy * sy);
             const s = Math.sqrt(s2);
             const defocus2d = ctf.defocus + ctf.dfdiff / 2 * Math.cos(2 * (theta - ctf.dfang * Math.PI / 180));
@@ -2070,7 +2060,7 @@
             let env = 1;
             if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2 / 4);
             if (ctf.alpha) {
-              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * ctf.defocus * s);
+              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * defocus2d * s);
               env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
             }
             if (ctf.dE) {
@@ -2116,6 +2106,7 @@
           const sy = axisY[row];
           for (let col = 0; col < width; col += 1) {
             const sx = axisX[col];
+            // images are drawn with row 0 at the top: -atan2 is counterclockwise on screen, as in the CTF plot
             const theta = -Math.atan2(sy, sx);
             const s2 = sx * sx + sy * sy;
             const s = Math.sqrt(s2);
@@ -2124,7 +2115,7 @@
             let env = 1;
             if (ctf.bfactor) env *= Math.exp(-ctf.bfactor * s2 / 4);
             if (ctf.alpha) {
-              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * ctf.defocus * s);
+              const alphaTerm = Math.PI * ctf.alpha * (1e7 * ctf.cs * wl * wl * s ** 3 - 1e4 * defocus2d * s);
               env *= Math.exp(-(alphaTerm ** 2) * 1e-6);
             }
             if (ctf.dE) {
@@ -2553,7 +2544,7 @@
               ${numberField("dE", "Energy spread (eV)", ctf.dE, 0.2, 0)}
               ${numberField("dI", "Current spread (ppm)", ctf.dI, 0.2, 0)}
               ${numberField("cc", "Cc (mm)", ctf.cc, 0.1, 0)}
-              ${numberField("dZ", "Vertical motion (Å)", ctf.dZ, 20, 0)}
+              ${numberField("dZ", "Vertical vibration (Å)", ctf.dZ, 20, 0)}
               ${numberField("dXY", "Horizontal motion (Å)", ctf.dXY, 0.2, 0)}
               <div class="field toggle">
                 <input data-field="show_marker" type="checkbox" ${ctf.show_marker ? "checked" : ""} />

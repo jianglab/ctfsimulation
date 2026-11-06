@@ -109,7 +109,7 @@ def main():
                         rotavg = st.checkbox(label='plot rotational average', value=value, key="rotavg")
                     else:
                         rotavg = False
-                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['dfang']))}  \nMInplane angle of the maximal dofocus direction", key=f"dfang_{i}")
+                    st.number_input('astigmatism angle (°)', value=st.session_state[f"dfang_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['dfang']))}  \nIn-plane angle of the maximal defocus direction, counterclockwise from the x axis (as RELION's defocus angle)", key=f"dfang_{i}")
                 st.number_input('phase shift (°)', value=st.session_state[f"phaseshift_{i}"], min_value=0.0, max_value=360., step=1.0, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['phaseshift']))}  \nPhase shift from phase plate", key=f"phaseshift_{i}")
                 st.number_input('pixel size (Å/pixel)', value=st.session_state[f"apix_{i}"], min_value=0.1, step=0.01, format="%g", help=f"{ctf_latex(colored_attrs=merge_colored_attrs(varying_equation_attrs, ['sampling']))}  \nPixel size of the image. It determines the spatial frequency in the Fourier space. The spatial frequency at the edge of the Fourier transform (e.g. Nyquiest) is 1/(2*pixel size)", key=f"apix_{i}")
                 apix_wrong_empties.append(st.empty())
@@ -127,7 +127,7 @@ def main():
                     dI = st.number_input('objective lens current spread (ppm)', value=st.session_state[f"dI_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dI_{i}")
                     if dE or dI:
                         st.number_input('cc (mm)', value=2.7, min_value=0.0, step=0.1, format="%g", key=f"cc_{i}")
-                    st.number_input('sample vertical motion (Å)', value=st.session_state[f"dZ_{i}"], min_value=0.0, step=20.0, format="%g", key=f"dZ_{i}")
+                    st.number_input('sample vertical vibration (Å)', value=st.session_state[f"dZ_{i}"], min_value=0.0, step=20.0, format="%g", help="Amplitude of a sinusoidal up-and-down vibration of the sample during the exposure", key=f"dZ_{i}")
                     st.number_input('sample horizontal motion (Å)', value=st.session_state[f"dXY_{i}"], min_value=0.0, step=0.2, format="%g", key=f"dXY_{i}")
 
                 show_marker_empties.append(st.empty())
@@ -895,20 +895,11 @@ class CTF:
         return ret
 
     def wave_length(self):
-        wl = 12.2639 / np.sqrt(self.voltage * 1000.0 + 0.97845 * self.voltage * self.voltage)  # Angstrom
+        # relativistic electron wavelength from the physical constants (CODATA 2018)
+        h, m0, e, c = 6.62607015e-34, 9.1093837015e-31, 1.602176634e-19, 299792458.0
+        V = self.voltage * 1000.0  # volt
+        wl = h / np.sqrt(2 * m0 * e * V * (1 + e * V / (2 * m0 * c * c))) * 1e10  # Angstrom
         return wl
-
-    def s_at_1st_peak(self, defocus_final=None):
-        wl = self.wave_length()  # Angstrom
-        phaseshift = self.phaseshift * np.pi / 180.0 + np.arcsin(self.ampcontrast/100.)
-        defocus = self.defocus if defocus_final is None else defocus_final
-        # a*x^2 + b*x + c = 0
-        a = 2*np.pi*.25*self.cs*1e7*wl**3
-        b = 2*np.pi*(-0.5*defocus*1e4*wl)
-        c = - phaseshift + np.pi/2
-        s2 = (-b - np.sqrt(b*b-4*a*c))/(2*a)
-        s = np.sqrt(s2)
-        return s
 
     def scherzer_defocus(self, extended=True):
         f = np.sqrt(self.cs*1e3 * self.wave_length()*1e-4 ) # micrometer
@@ -938,16 +929,15 @@ class CTF:
         if self.dE: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dE/self.voltage, 2.0)/(16*np.log(2))*1e8)
         if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
-        if self.dXY: env *= sinc(np.pi*self.dXY*s)
+        if self.dXY: env *= sinc(self.dXY*s)
 
         if env_only:
             return s, s2, env
 
         ctf = np.sin(gamma)
         if self.ctf_intact_first_peak:
-            s_peak = self.s_at_1st_peak(defocus_final=defocus_final)
-            mask = np.where(s<=s_peak)
-            ctf[mask] = -1
+            # as RELION: hold the CTF wherever the phase is within 90° of zero
+            ctf[np.abs(gamma) < np.pi/2] = -1
         ctf *= env
         if self.ctf_type == "CTF^2": ctf = ctf*ctf
         elif self.ctf_type == "|CTF|": ctf = np.abs(ctf)
@@ -976,7 +966,7 @@ class CTF:
         if self.dE: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dE/self.voltage, 2.0)/(16*np.log(2))*1e8)
         if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
-        if self.dXY: env *= sinc(np.pi*self.dXY*s)
+        if self.dXY: env *= sinc(self.dXY*s)
 
         if env_only:
             ctf = env
@@ -1001,8 +991,9 @@ class CTF:
             ds2 = s_nyquist*s_nyquist/(self.imagesize//2*self.over_sample)
             sx2 = np.arange(-self.imagesize*self.over_sample//2, self.imagesize*self.over_sample//2) * ds2
             sy2 = np.arange(-self.imagesize*self.over_sample//2, self.imagesize*self.over_sample//2) * ds2
-            sx2, sy2 = np.meshgrid(sx2, sy2, indexing='ij')
-            theta = -np.arctan2(sy2, sx2)
+            # rows along y, columns along x; theta counterclockwise from x, as RELION's defocus angle
+            sx2, sy2 = np.meshgrid(sx2, sy2, indexing='xy')
+            theta = np.arctan2(sy2, sx2)
             s2 = np.hypot(sx2, sy2)
             s = np.sqrt(s2)
             del sx2, sy2
@@ -1011,8 +1002,9 @@ class CTF:
             ds = s_nyquist/(self.imagesize//2*self.over_sample)
             sx = np.arange(-self.imagesize*self.over_sample//2, self.imagesize*self.over_sample//2) * ds
             sy = np.arange(-self.imagesize*self.over_sample//2, self.imagesize*self.over_sample//2) * ds
-            sx, sy = np.meshgrid(sx, sy, indexing='ij')
-            theta = -np.arctan2(sy, sx)
+            # rows along y, columns along x; theta counterclockwise from x, as RELION's defocus angle
+            sx, sy = np.meshgrid(sx, sy, indexing='xy')
+            theta = np.arctan2(sy, sx)
             s2 = sx*sx + sy*sy
             s = np.sqrt(s2)
             del sx, sy
@@ -1027,11 +1019,11 @@ class CTF:
         from scipy.special import j0, sinc
         env = np.ones_like(gamma)
         if self.bfactor: env *= np.exp(-self.bfactor*s2/4.0)
-        if self.alpha: env *= np.exp(-np.power(np.pi*self.alpha*(1.0e7*self.cs*wl*wl*s*s*s-1e4*self.defocus*s), 2.0)*1e-6)
+        if self.alpha: env *= np.exp(-np.power(np.pi*self.alpha*(1.0e7*self.cs*wl*wl*s*s*s-1e4*defocus2d*s), 2.0)*1e-6)
         if self.dE: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dE/self.voltage, 2.0)/(16*np.log(2))*1e8)
         if self.dI: env *= np.exp(-np.power(np.pi*self.cc*wl*s*s* self.dI,              2.0)/(4*np.log(2))*1e2)
         if self.dZ: env *= j0(np.pi*self.dZ*wl*s*s)
-        if self.dXY: env *= sinc(np.pi*self.dXY*s)
+        if self.dXY: env *= sinc(self.dXY*s)
 
         if env_only:
             return ds, ds2, env
@@ -1051,7 +1043,7 @@ def ctf_latex(colored_attrs=None):
             mapping2[attr] = r"{\textcolor{red}{" + mapping[attr] + r"}}"
         else:
             mapping2[attr] = mapping[attr]
-    ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+" + mapping2["dfdiff"] + r"cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)+" + r"sin^{-1}(" + mapping2["ampcontrast"] + r")+" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
+    ret = r"$CTF(s, \theta) \approx sin\left(\frac{-2\pi}{\lambda}\left( \frac{" + mapping2["voltage"] + r"^2 " + mapping2["sampling"] + r"^2}{2}(" + mapping2["defocus"] + r"+\frac{" + mapping2["dfdiff"] + r"}{2}cos(2(\theta-" + mapping2["dfang"] + r")) - \frac{" + mapping2["voltage"] + r"^4" + mapping2["sampling"] + r"^4}{4} " + mapping2["cs"] + r") \right)-" + r"sin^{-1}(" + mapping2["ampcontrast"] + r")-" + mapping2["phaseshift"] + r"\right)e^\frac{-" + mapping2["bfactor"] + mapping2["sampling"] + r"^2}{4}$"
     return ret
 
 #@st.cache_data(max_entries=10, ttl=3600, persist=True, show_spinner=False)
